@@ -6,6 +6,9 @@ from math import *
 from subprocess import *
 import os
 import json
+import pandas as pd
+from datetime import datetime
+import ConfigParser
 
 NoOfIdracs = input('Enter the number of IDRACs :')
 
@@ -21,7 +24,7 @@ for i in range(0,NoOfIdracs):
         IdracList.append(Idrac)
 
 
-print IdracList
+#print IdracList
 
 HwInventoryList=[]
 for idracNo in range(0,len(IdracList)):
@@ -37,7 +40,7 @@ for idracNo in range(0,len(IdracList)):
 		print ("ssh.connect not work for %s",IdracList[idracNo][0])
 	
 
-print HwInventoryList
+#print HwInventoryList
 print "Length of HwInventory: %s"%len(HwInventoryList)
 
 search_dimm = "InstanceID: DIMM.Socket"
@@ -46,26 +49,56 @@ search_size = "Size ="
 search_cpu = "InstanceID: CPU.Socket"
 search_nfp = "NumberOfProcessorCores"
 search_ht = "HyperThreadingEnabled = Yes"
+search_nic = "InstanceID: NIC.Integrated"
 
 dumy_mem=''
 dumy_cpu=''
+dumy_nic=''
+
+dmem=''
+dcpu=''
+dcpu=''
 
 dumy_mem_list=[]
 dumy_cpu_list=[]
-TotalIdracsOutput=len(HwInventoryList)
-
-for IdracNo in range(0,TotalIdracsOutput):
+TotalIdracsOutputs=len(HwInventoryList)
+Result=[]
+for IdracNo in range(0,TotalIdracsOutputs):
+	time=datetime.utcnow().strftime("%s")
+	filename="Idrac"+str(IdracNo)+"_"+time+".ini"
+	fptr= open(filename,"w+")
+	for line in HwInventoryList[IdracNo]:
+		if "--" in line:
+			continue
+		fptr.write("%s\n" % line) 
+#	fptr.write(HwInventoryList[IdracNo])
+	fptr.close()	
+	
+	Config = ConfigParser.ConfigParser()
+	Config.read(filename)
+	print "Config Section ",Config.sections()
+	#dumy_result=json.dumps(HwInventoryList[IdracNo])
+	#Result.append(dumy_result)	
+	OutputSize=len(HwInventoryList[IdracNo])
 	for OutputIndex in range(0,len(HwInventoryList[IdracNo])):
 		if search_dimm in HwInventoryList[IdracNo][OutputIndex]:
-			while(1):
+			while(OutputIndex<OutputSize):
+				dmem+=HwInventoryList[IdracNo][OutputIndex+1]
+				Result.append(json.dumps(dmem))
 				if search_size in HwInventoryList[IdracNo][OutputIndex+1]:	
 					dumy_mem+=(HwInventoryList[IdracNo][OutputIndex+1])
 					break
 				elif "[" in HwInventoryList[IdracNo][OutputIndex+1]:
 					break
 				OutputIndex+=1
+
+		elif search_nic in HwInventoryList[IdracNo][OutputIndex]:
+			while(OutputIndex<OutputSize):
+				
+				OutputIndex+=1
+
 		elif search_cpu in HwInventoryList[IdracNo][OutputIndex]:
-                	while(1):
+                	while(OutputIndex<OutputSize):
                        		if search_ht in HwInventoryList[IdracNo][OutputIndex+1]:
                                		hyper_thread=1
 
@@ -114,5 +147,10 @@ for IdracNo in range(0,TotalIdracsOutput):
 #print dumy_cpu_list
 #print dumy_mem_list
 
-
-	
+#print Result
+#print type(Result)
+#result=''
+#result=''.join(str(x) for x in Result)
+#print Result
+#df= pd.read_json(dumy_mem)
+#df.to_excel('output.xls')	
