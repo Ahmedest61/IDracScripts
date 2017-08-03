@@ -8,7 +8,11 @@ import os
 import json
 import pandas as pd
 from datetime import datetime
+from ConfigParser import *
+from ConfigParser import (ConfigParser, MissingSectionHeaderError,
+                          ParsingError, DEFAULTSECT)
 import ConfigParser
+
 
 NoOfIdracs = input('Enter the number of IDRACs :')
 
@@ -35,7 +39,6 @@ for idracNo in range(0,len(IdracList)):
 		stdin,stdout,stderr=ssh.exec_command("racadm hwinventory")
 	        HwInventoryList.append(stdout.readlines())
         	ssh.close()
-
 	except Exception as e:
 		print ("ssh.connect not work for %s",IdracList[idracNo][0])
 	
@@ -62,6 +65,8 @@ dcpu=''
 dumy_mem_list=[]
 dumy_cpu_list=[]
 TotalIdracsOutputs=len(HwInventoryList)
+Mem_section_list=[]
+mem_size_list=[]
 Result=[]
 for IdracNo in range(0,TotalIdracsOutputs):
 	time=datetime.utcnow().strftime("%s")
@@ -76,9 +81,38 @@ for IdracNo in range(0,TotalIdracsOutputs):
 	
 	Config = ConfigParser.ConfigParser()
 	Config.read(filename)
-	print "Config Section ",Config.sections()
+#	print "Config Section ",Config.sections()
 	#dumy_result=json.dumps(HwInventoryList[IdracNo])
 	#Result.append(dumy_result)	
+	
+	Mem_section_list = [s for s,s in enumerate(Config.sections()) if "InstanceID: DIMM.Socket" in s]
+	
+	for mem_sec in Mem_section_list:
+		mem_size_list+=[Config.get(str(mem_sec),'Size')]
+	
+	for index in range(0,len(mem_size_list)):	
+		if "MB" in mem_size_list[index]:
+			value=mem_size_list[index].replace("MB","")
+			mem_size_list[index] = value
+		elif "PB" in mem_size_list[index]:
+			value=mem_size_list[index].replace("PB","")
+			value*= math.pow(1024,3);	
+			mem_size_list[index] = value
+		elif "TB" in mem_size_list[index]:
+			value=mem_size_list[index].replace("TB","")
+			value*= math.pow(1024,2);	
+			mem_size_list[index] = value
+		elif "GB" in mem_size_list[index]:
+			value=mem_size_list[index].replace("GB","")
+			value*= math.pow(1024,1);	
+			mem_size_list[index] = value
+		elif "KB" in mem_size_list[index]:
+			value=mem_size_list[index].replace("KB","")
+			value/=1024	
+			mem_size_list[index] = value
+	
+	T_memory = sum([int(x) for x in mem_size_list])
+	print T_memory 
 	OutputSize=len(HwInventoryList[IdracNo])
 	for OutputIndex in range(0,len(HwInventoryList[IdracNo])):
 		if search_dimm in HwInventoryList[IdracNo][OutputIndex]:
