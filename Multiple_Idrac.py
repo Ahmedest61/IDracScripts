@@ -12,6 +12,7 @@ from ConfigParser import *
 from ConfigParser import (ConfigParser, MissingSectionHeaderError,
                           ParsingError, DEFAULTSECT)
 import ConfigParser
+import collections
 
 
 NoOfIdracs = input('Enter the number of IDRACs :')
@@ -43,7 +44,8 @@ for idracNo in range(0,len(IdracList)):
 		print ("ssh.connect not work for %s",IdracList[idracNo][0])
 	
 
-#print HwInventoryList
+print "HWInventory"
+print HwInventoryList
 print "Length of HwInventory: %s"%len(HwInventoryList)
 
 search_dimm = "InstanceID: DIMM.Socket"
@@ -65,13 +67,29 @@ dcpu=''
 dumy_mem_list=[]
 dumy_cpu_list=[]
 TotalIdracsOutputs=len(HwInventoryList)
-Mem_section_list=[]
-mem_size_list=[]
+
+
+
+
 Result=[]
+
+
+System_dictionary={}
+Sys_mem_dic={}
+Sys_cpu_dic={}
+leave=1
 for IdracNo in range(0,TotalIdracsOutputs):
+	
+	MemoryDictionary={}
+	
+	Mem_section_list,mem_size_list,mem_speed_list,mem_descp_list,mem_serial_list,mem_model_list,mem_status_list=([]for i in range(0,7))
+
+	dumy_mem_dic=collections.defaultdict(dict)
+	
 	time=datetime.utcnow().strftime("%s")
-	filename="Idrac"+str(IdracNo)+"_"+time+".ini"
+	filename ="Idrac"+str(IdracNo)+"_"+time+".ini"
 	fptr= open(filename,"w+")
+	
 	for line in HwInventoryList[IdracNo]:
 		if "--" in line:
 			continue
@@ -89,7 +107,11 @@ for IdracNo in range(0,TotalIdracsOutputs):
 	
 	for mem_sec in Mem_section_list:
 		mem_size_list+=[Config.get(str(mem_sec),'Size')]
-	
+		mem_speed_list+=[Config.get(str(mem_sec),'speed')]
+		mem_descp_list+=[Config.get(str(mem_sec),'Manufacturer')]
+		mem_serial_list+=[Config.get(str(mem_sec),'SerialNumber')]
+		mem_model_list+=[Config.get(str(mem_sec),'Model')]
+		mem_status_list+=[Config.get(str(mem_sec),'PrimaryStatus')]	
 	for index in range(0,len(mem_size_list)):	
 		if "MB" in mem_size_list[index]:
 			value=mem_size_list[index].replace("MB","")
@@ -110,9 +132,73 @@ for IdracNo in range(0,TotalIdracsOutputs):
 			value=mem_size_list[index].replace("KB","")
 			value/=1024	
 			mem_size_list[index] = value
+		
+
+#	T_memory = sum([int(x) for x in mem_size_list])
+#	print T_memory 
 	
-	T_memory = sum([int(x) for x in mem_size_list])
-	print T_memory 
+	dumy_mem_dic['extra']['slots']=len(mem_size_list)	
+	dumy_mem_dic['extra']['Manufacturer']=mem_descp_list
+	dumy_mem_dic['extra']['speed']=mem_speed_list
+	dumy_mem_dic['extra']['model']=mem_model_list
+	dumy_mem_dic['extra']['serial']=mem_serial_list
+	dumy_mem_dic['extra']['speed']=mem_speed_list
+	dumy_mem_dic['extra']['status']=mem_status_list
+	MemoryDictionary.update(dumy_mem_dic)
+	MemoryDictionary['Total Memory']= sum([int(x) for x in mem_size_list])
+	
+	Sys_mem_dic[IdracNo]= MemoryDictionary	
+	#print Sys_mem_dic
+	
+	System_dictionary['Memory info'] = Sys_mem_dic
+		
+	Cpu_section_list,cpu_processor_list,cpu_family_list,cpu_manufac_list,cpu_curr_clock_list,cpu_model_list=([]for i in range(6))
+	cpu_prim_status_list,cpu_virt_list,cpu_voltag_list,cpu_enabled_thread_list,cpu_max_clock_speed_list= ([]for i in range(5))
+	cpu_ex_bus_clock_speed_list,cpu_hyper_thread_list,cpu_status_list=([]for i in range(3))
+
+	CpuDictionary={}
+	dumy_cpu_dic=collections.defaultdict(dict)
+	
+	Cpu_section_list = [s for s,s in enumerate(Config.sections()) if "InstanceID: CPU.Socket" in s]
+	
+	for cpu_sec in Cpu_section_list:
+		cpu_processor_list+=[Config.get(str(cpu_sec),'NumberOfProcessorCores')]
+		cpu_family_list+=[Config.get(str(cpu_sec),'CPUFamily')]
+		cpu_manufac_list+=[Config.get(str(cpu_sec),'Manufacturer')]
+		cpu_curr_clock_list+=[Config.get(str(cpu_sec),'CurrentClockSpeed')]
+		cpu_model_list+=[Config.get(str(cpu_sec),'Model')]
+		cpu_prim_status_list+=[Config.get(str(cpu_sec),'PrimaryStatus')]
+		cpu_virt_list+=[Config.get(str(cpu_sec),'VirtualizationTechnologyEnabled')]
+		cpu_voltag_list+=[Config.get(str(cpu_sec),'Voltage')]
+		cpu_enabled_thread_list+=[Config.get(str(cpu_sec),'NumberOfEnabledThreads')]
+		cpu_max_clock_speed_list+=[Config.get(str(cpu_sec),'MaxClockSpeed')]
+		cpu_ex_bus_clock_speed_list+=[Config.get(str(cpu_sec),'ExternalBusCLockSpeed')]
+		cpu_hyper_thread_list+=[Config.get(str(cpu_sec),'HyperThreadingEnabled')]
+		cpu_status_list+=[Config.get(str(cpu_sec),'CPUStatus')]
+
+	dumy_cpu_dic['extra']['No of Processors']=cpu_processor_list
+	dumy_cpu_dic['extra']['CPU Family']=cpu_family_list
+	dumy_cpu_dic['extra']['Manufacturer']=cpu_manufac_list
+	dumy_cpu_dic['extra']['Current Clock Speed']=cpu_curr_clock_list
+	dumy_cpu_dic['extra']['Model']=cpu_model_list
+	dumy_cpu_dic['extra']['Primary Status']=cpu_prim_status_list
+	dumy_cpu_dic['extra']['Virtualization Technology Enabled']=cpu_virt_list
+	dumy_cpu_dic['extra']['Voltage']=cpu_voltag_list
+	dumy_cpu_dic['extra']['No of Enabled Thread']=cpu_enabled_thread_list
+	dumy_cpu_dic['extra']['Max Clock Speed']=cpu_max_clock_speed_list
+	dumy_cpu_dic['extra']['External Bus Clock Speed']=cpu_ex_bus_clock_speed_list
+	dumy_cpu_dic['extra']['Hyper Threading Enabled']=cpu_hyper_thread_list
+	dumy_cpu_dic['extra']['CPU Status']=cpu_status_list
+	
+	CpuDictionary.update(dumy_cpu_dic)
+	CpuDictionary['Total CPU']= len(Cpu_section_list)
+		
+	Sys_cpu_dic[IdracNo]= CpuDictionary	
+#	print Sys_cpu_dic
+	System_dictionary['CPU info'] = Sys_cpu_dic
+	
+	if leave ==1:
+		continue
 	OutputSize=len(HwInventoryList[IdracNo])
 	for OutputIndex in range(0,len(HwInventoryList[IdracNo])):
 		if search_dimm in HwInventoryList[IdracNo][OutputIndex]:
@@ -178,6 +264,19 @@ for IdracNo in range(0,TotalIdracsOutputs):
 		print"Hyper threading disabled; total CPU: %d"%(total_cpu)
 	dumy_mem=''
 	dumy_cpu=''
+
+print System_dictionary
+	
+
+time=datetime.utcnow().strftime("%s")
+#filename="Idrac"+str(IdracNo)+"_"+time+".json"
+filename = filename.replace("ini","json")
+fptr= open(filename,"w+")
+fptr.write(json.dumps(System_dictionary))
+fptr.close()
+
+df = pd.read_json(json.dumps(System_dictionary))
+df.to_excel('output.xls')
 #print dumy_cpu_list
 #print dumy_mem_list
 
