@@ -44,8 +44,8 @@ for idracNo in range(0,len(IdracList)):
 		print ("ssh.connect not work for %s",IdracList[idracNo][0])
 	
 
-print "HWInventory"
-print HwInventoryList
+#print "HWInventory"
+#print HwInventoryList
 print "Length of HwInventory: %s"%len(HwInventoryList)
 
 search_dimm = "InstanceID: DIMM.Socket"
@@ -77,6 +77,7 @@ Result=[]
 System_dictionary={}
 Sys_mem_dic={}
 Sys_cpu_dic={}
+Sys_nic_dic={}
 leave=1
 for IdracNo in range(0,TotalIdracsOutputs):
 	
@@ -196,7 +197,54 @@ for IdracNo in range(0,TotalIdracsOutputs):
 	Sys_cpu_dic[IdracNo]= CpuDictionary	
 #	print Sys_cpu_dic
 	System_dictionary['CPU info'] = Sys_cpu_dic
+
+	Nic_section_list, nic_manufac_list, nic_descrp_list, nic_dev_descrp_list, nic_fqdd_list = ([]for i in range(5))
+	nic_pci_sub_device_id_list, nic_pci_sub_vendor_id_list, nic_pci_device_id_list = ([]for i in range(3))
+	nic_pci_vendor_id_list, nic_bus_no_list, nic_slot_typ_list, nic_data_bus_width_list = ([]for i in range(4))
+  	nic_fun_no_list, nic_dev_no_list = ([]for i in range(2))
+ 
+	Nic_section_list = [s for s,s in enumerate(Config.sections()) if "InstanceID: NIC" in s]
+
+	NicDictionary={}
+	dumy_nic_dic=collections.defaultdict(dict)
+
+	for nic_sec in Nic_section_list:
+		nic_manufac_list+=[Config.get(str(nic_sec),'Manufacturer')]
+		nic_descrp_list+=[Config.get(str(nic_sec),'Description')]		
+		nic_dev_descrp_list+=[Config.get(str(nic_sec),'DeviceDescription')]
+		nic_fqdd_list+=[Config.get(str(nic_sec),'FQDD')]
+		nic_pci_sub_device_id_list+=[Config.get(str(nic_sec),'PCISubDeviceID')]
+		nic_pci_sub_vendor_id_list+=[Config.get(str(nic_sec),'PCISubVendorID')]
+		nic_pci_device_id_list+=[Config.get(str(nic_sec),'PCIDeviceID')]
+		nic_pci_vendor_id_list+=[Config.get(str(nic_sec),'PCIVendorID')]
+		nic_bus_no_list+=[Config.get(str(nic_sec),'BusNumber')]
+		nic_slot_typ_list+=[Config.get(str(nic_sec),'SlotType')]
+		nic_data_bus_width_list+=[Config.get(str(nic_sec),'DataBusWidth')]		
+		nic_fun_no_list+=[Config.get(str(nic_sec),'FunctionNumber')]
+		nic_dev_no_list+=[Config.get(str(nic_sec),'DeviceNumber')]
+
 	
+	dumy_nic_dic['extra']['Manufacturer']=nic_manufac_list		
+	dumy_nic_dic['extra']['Description']=nic_descrp_list
+	dumy_nic_dic['extra']['Device Description']=nic_dev_descrp_list
+	dumy_nic_dic['extra']['FQDD']=nic_fqdd_list
+	dumy_nic_dic['extra']['PCI SubDevice ID']=nic_pci_sub_device_id_list
+	dumy_nic_dic['extra']['PCI SubVendor ID']=nic_pci_sub_vendor_id_list
+	dumy_nic_dic['extra']['PCI Device ID']=nic_pci_device_id_list
+	dumy_nic_dic['extra']['PCI Vendor ID']=nic_pci_vendor_id_list
+	dumy_nic_dic['extra']['Bus Number']=nic_bus_no_list
+	dumy_nic_dic['extra']['Slot Type']=nic_slot_typ_list
+	dumy_nic_dic['extra']['Data Bus Width']=nic_data_bus_width_list		
+	dumy_nic_dic['extra']['Function Number']=nic_fun_no_list
+	dumy_nic_dic['extra']['Device Number']=nic_dev_no_list
+
+	NicDictionary.update(dumy_nic_dic)
+	NicDictionary['Total Nics']= len(Nic_section_list)
+		
+	Sys_nic_dic[IdracNo]= NicDictionary	
+#	print Sys_cpu_dic
+	System_dictionary['NIC info'] = Sys_nic_dic
+
 	if leave ==1:
 		continue
 	OutputSize=len(HwInventoryList[IdracNo])
@@ -269,14 +317,15 @@ print System_dictionary
 	
 
 time=datetime.utcnow().strftime("%s")
-#filename="Idrac"+str(IdracNo)+"_"+time+".json"
+filename="Idrac"+str(IdracNo)+"_"+time+".json"
 filename = filename.replace("ini","json")
 fptr= open(filename,"w+")
 fptr.write(json.dumps(System_dictionary))
 fptr.close()
 
-df = pd.read_json(json.dumps(System_dictionary))
-df.to_excel('output.xls')
+#df = pd.read_json(json.dumps(System_dictionary))
+#df.to_excel('output.xls')
+
 #print dumy_cpu_list
 #print dumy_mem_list
 
