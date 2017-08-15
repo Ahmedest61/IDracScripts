@@ -254,6 +254,23 @@ for IdracNo in range(0,TotalIdracsOutputs):
  
 	Nic_section_list = [s for s,s in enumerate(Config.sections()) if "InstanceID: NIC" in s]
 	
+	Nic_set = set()
+	port_slots= len(Nic_section_list)
+	for section in Nic_section_list: 
+		nic=section.split(" ")[1].split(".")[0]+"."+section.split(" ")[1].split(".")[1]+"."+section.split(" ")[1].split(".")[2].split("-")[0]
+		if nic not in Nic_set:
+			Nic_set.add(nic)
+	nic_slots= len(Nic_set)
+	Nic_set_dic = dict()
+	for nic in Nic_set:
+		for nic_sec in Nic_section_list:
+			if nic in nic_sec:
+					if nic not in Nic_set_dic:
+						Nic_set_dic[nic]=list()
+						Nic_set_dic[nic].append(nic_sec)
+					else:
+						Nic_set_dic[nic].append(nic_sec)
+
 	NicDictionary={}
 	dumy_nic_dic=collections.defaultdict(dict)
 
@@ -294,10 +311,9 @@ for IdracNo in range(0,TotalIdracsOutputs):
 #	print Sys_cpu_dic
 	System_dictionary['NIC info'] = Sys_nic_dic
 
-	nic_slots=len(Nic_section_list)
-	nic_info_dictionaries=[dict() for x in range (nic_slots)]
-	nic_info_list = []
-	for i in range (nic_slots):
+	nic_info_dictionaries=[dict() for x in range (port_slots)]
+
+	for i in range (port_slots):
 		nic_info_dictionaries[i]['manufacturer']=nic_manufac_list[i]
 		nic_info_dictionaries[i]['decription']=nic_descrp_list[i]
 		nic_info_dictionaries[i]['device_description']=nic_dev_descrp_list[i]
@@ -312,10 +328,42 @@ for IdracNo in range(0,TotalIdracsOutputs):
 		nic_info_dictionaries[i]['function_number']=nic_fun_no_list[i]
 		nic_info_dictionaries[i]['dev_number']=nic_dev_no_list[i]
 
-	nic_info_list=	nic_info_dictionaries
+	nic_port_dictionaries = dict()
+	
+	indx=0	
+#	print Nic_set
+#	print Nic_set_dic
+
+	for nic in Nic_set:
+#		print len(Nic_set_dic[nic])
+		dumy_dict=  [dict() for x in range(len(Nic_set_dic[nic]))]
+		ind=0
+	#	print dumy_dict
+		for nics in Nic_set_dic[nic]:
+			for j in range(port_slots):
+#				print nics,nic_info_dictionaries[j]['fqdd']
+				if nic_info_dictionaries[j]['fqdd'] in nics:
+					dumy_dict[ind]=nic_info_dictionaries[j]
+					ind+=1
+				#	print nics
+#				if nics in nic_info_dictionaries[j]['fqdd']:
+					
+			#		print nics
+		#	print dumy_dict	
+		nic_port_dictionaries[nic]=dumy_dict
+		indx+=1
+
+#	for nic in Nic_set:
+#		for j in range(port_slots):	
+#			if nic in nic_info_dictionaries[j]['fqdd']:
+#				nic_port_dictionaries[ind]= nic_info_dictionaries[j]
+				
+#		ind+=1			
+# 	print nic_port_dictionaries	
+#	nic_info_list=	nic_port_dictionaries
 	idrac_dumy_dic['nic_slots']= nic_slots
-	idrac_dumy_dic['ports']= nic_slots			
-	idrac_dumy_dic['nic_info']=nic_info_list
+	idrac_dumy_dic['ports']= port_slots			
+	idrac_dumy_dic['nic_info']=nic_port_dictionaries
 
 	Drive_section_list,driv_dev_list,driv_dev_descrp_list,driv_ppid_list,temp_size_list = ([]for i in range(5))
 	driv_sas_address_list,driv_max_cap_speed_list,driv_used_siz_byte_list,driv_media_typ_list = ([]for i in range(4))
@@ -326,7 +374,7 @@ for IdracNo in range(0,TotalIdracsOutputs):
 	i=0
 	drive_list_len=len(Drive_section_list);
 	while(i<len(Drive_section_list)):
-		print drive_list_len
+	#	print drive_list_len
 		if Config.has_option(Drive_section_list[i],"Device Type"):			
 			if "PhysicalDisk" not in Config.get(Drive_section_list[i],"Device Type"):			
 				del Drive_section_list[i]
