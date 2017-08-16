@@ -7,7 +7,7 @@ from math import *
 #from subprocess import *
 import os
 import json
-import pandas as pd
+#import pandas as pd
 from datetime import datetime
 from ConfigParser import *
 from ConfigParser import (ConfigParser, MissingSectionHeaderError,
@@ -46,12 +46,11 @@ for idracNo in range(0, len(IdracList)):
 
 
 TotalIdracsOutputs = len(HwInventoryList)
-TotalIdracsOutputs = 3
+
 iDRAC_list = []
 idrac_dumy_dic = OrderedDict()
 
 Outfilename = "Idrac" + ".json"
-fptr = open(Outfilename, "a")
 
 for IdracNo in range(0, TotalIdracsOutputs):
 
@@ -68,7 +67,6 @@ for IdracNo in range(0, TotalIdracsOutputs):
         if "--" in line:
             continue
         fptr.write("%s\n" % line)
-    fptr.write(HwInventoryList[IdracNo])
     fptr.close()
 
     Config = ConfigParser.ConfigParser()
@@ -341,10 +339,10 @@ for IdracNo in range(0, TotalIdracsOutputs):
 
     iDRAC_list.append(idrac_dumy_dic)
 
-
+fptr = open(Outfilename, "w+")
 json.dump(iDRAC_list, fptr, indent=4, sort_keys=False, separators=(',', ':'))
 fptr.close()
 
-df = pd.read_json(iDRAC_list)
-print "writing to file"
-df.to_excel('output.xls')
+#df = pd.read_json(iDRAC_list)
+#print "writing to file"
+#df.to_excel('output.xls')
