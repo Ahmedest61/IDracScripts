@@ -14,6 +14,9 @@ NIC_INFO_COLUMN = 'M'
 HDD_DRIVE_INFO_COLUMN = 'N'
 SSD_DRIVE_INFO_COLUMN = 'O'
 
+USER_COLUMN = 'B'
+PASSWORD_COLUMN = 'C'
+
 try:
     import getpass
     import string
@@ -41,6 +44,37 @@ except ImportError as error:
     exit(1)
 
 
+def createXlsxForIdrac(no_of_idracs, address, start):
+    ip = address
+    user = "root"
+    password = "Nfv1234"
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "IdracInfo"
+    columns_heading = ["IP", "User", "Pass"]
+    columns_alphabat = ['A', 'B', 'C']
+    yellowFill = PatternFill(start_color='FFFFFF00',
+                             end_color='FFFFFF00', fill_type='solid')
+    i = 0
+    while(i < len(columns_heading)):
+        ws[columns_alphabat[i] + str(1)].fill = yellowFill
+        ws[columns_alphabat[i] + str(1)] = columns_heading[i]
+        i += 1
+    index = 2
+
+    for idrac in range(no_of_idracs):
+        str_index = str(index)
+        ws[IP_ADDRESS_COLUMN + str_index].value = ip + "." + str(start)
+        ws[USER_COLUMN + str_index].value = user
+        ws[PASSWORD_COLUMN + str_index].value = password
+        start += 1
+        index += 1
+
+    name = 'IdracsList' + '.xlsx'
+    wb.save(name)
+    return name
+
+
 def CreateXLS(filename):
     with open(filename) as data_file:
         data = json.load(data_file)
@@ -48,7 +82,7 @@ def CreateXLS(filename):
     ws = wb.active
     # Column names
     columns_heading = ["IP", "Service Tag", "Total Memory", "Memory Slots", "Total CPU", "Total threads", "Total Nics",
-                       "Total Ports", "Total Drives", "Total Drives Size", "Memory Info", "CPU Info", "NIC Info", "HDD Drive Info", "SSD Drive Info"]
+                       "Total Ports", "Total Drives", "Total Drives Size", "Memory Info", "CPU Info", "NIC Info", "HDD Drives Info", "SSD Drives Info"]
     # column names correspond to excel
     columns_alphabat = ['A', 'B', 'C', 'D', 'E',
                         'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O']
@@ -77,15 +111,17 @@ def CreateXLS(filename):
         ws[NIC_COLUMN + str_index].value = data[idrac]['nic_slots']
         ws[PORT_COLUMN + str_index].value = data[idrac]['ports']
         drives = []
+        # Get to knmow the types of drives i.e. HDD and SSD
         for ind in range(len(data[idrac]['drives_type'])):
             for key, value in data[idrac]['drives_type'][ind].iteritems():
                 drives.append(key)
-	print drives
-	tot_driv = 0
+        print drives
+        tot_driv = 0
+        # Calculate totaal drives using type (HDD or SSD)
         for ind in range(len(drives)):
-	    print data[idrac]['drives_type'][ind][drives[ind]]
+            print data[idrac]['drives_type'][ind][drives[ind]]
             tot_driv += int(data[idrac]['drives_type'][ind][drives[ind]])
-        print drives, tot_driv
+#        print drives, tot_driv
         ws[DRIVE_COLUMN + str_index].value = tot_driv
 
         dumy_str = ''
@@ -112,7 +148,6 @@ def CreateXLS(filename):
                                                            ['nic_slots_name'][nic_slot]][0]['decription'] + "\n"
         ws[NIC_INFO_COLUMN + str_index].value = dumy_str
 
-        # Adjust total memory of each hardisk
         typ = 'GB'
         driv_type_dict = dict()
 
@@ -124,12 +159,14 @@ def CreateXLS(filename):
 #	for ind in range(len(data[idrac]['drives_type'])):
  #           drives.append(data[idrac]['drives_type'][ind])
         total_mem = 0
+        # Using drives type (HDD/SSD), find and count common drives i.e. 800 GB x 4 drives and add them into the excel sheet
         for driv_type in range(len(data[idrac]['drives_type'])):
             dumy_str = ''
             driv_type_dict = {}
+            # Adjust the size of hardrives i.e write 586 GB as 600, 1024 GB as 1TB and make a dictionary size vs number (600 GB x 4)
             for driv_slot in range(data[idrac]['drives_type'][driv_type][drives[driv_type]]):
-                size_val = int(data[idrac]['drives_info'][driv_type][drives[driv_type]][driv_slot]['used_size_in_bytes'].split(" ")[0]) / math.pow(1024, 3)
-                
+                size_val = float(data[idrac]['drives_info'][driv_type][drives[driv_type]]
+                                 [driv_slot]['total_size_in_giga_bytes'].split(" ")[0])
                 if 150 < size_val < 200:
                     size_val = 200
                     typ = " GB"
@@ -142,19 +179,23 @@ def CreateXLS(filename):
                 elif 500 < size_val < 600:
                     size_val = 600
                     typ = " GB"
-                elif size_val > 999:
-                    size_val = size_val / float(1024)
+                elif size_val > 1024:
+                    size_val = round(size_val / float(1024),2)
                     typ = " TB"
                 else:
+                    size_val = size_val
                     typ = " GB"
-		print size_val                
-		drives_size_list[driv_type].append(size_val)
+                print size_val
+		
+                drives_size_list[driv_type].append(size_val)
                 if str(size_val) not in driv_type_dict:
                     driv_type_dict[str(size_val)] = typ
+            # Count the common drives
             drive_set = collections.Counter(drives_size_list[driv_type])
 
             for drive in range(len(drive_set)):
                 if "TB" in driv_type_dict[str(drive_set.keys()[drive])]:
+		    drive_set.keys()[drive]=round(drive_set.keys()[drive],2)
                     total_mem += (drive_set.keys()
                                   [drive]) * (drive_set.values()[drive]) * 1024
                 elif "GB" in driv_type_dict[str(drive_set.keys()[drive])]:
@@ -162,8 +203,14 @@ def CreateXLS(filename):
                                   [drive]) * (drive_set.values()[drive])
                 dumy_str += str(drive_set.keys()[drive]) + driv_type_dict[str(drive_set.keys()[
                     drive])] + " x " + "Count: " + str(drive_set.values()[drive]) + "\n"
+            # Save Drives Size vs No of drives
             drives_info_list[driv_type] = dumy_str
-
+	    if total_mem > 1024:
+	    	total_mem/=float(1024)
+		total_mem=round(total_mem)
+	    	total_mem=str(total_mem)+" TB"
+	    else:
+		total_mem=str(total_mem)+" TB"
         print drives_info_list, total_mem
         for ind in range(len(data[idrac]['drives_type'])):
             if "HDD" in data[idrac]['drives_type'][ind]:
@@ -172,7 +219,7 @@ def CreateXLS(filename):
                 ws[SSD_DRIVE_INFO_COLUMN + str_index].value = drives_info_list[ind]
 
         ws[DRIVE_SIZE_COLUMN +
-            str_index].value = str(total_mem) + " GB"
+            str_index].value = (total_mem) 
         index += 1
     time = datetime.utcnow().strftime("%s")
     name = 'Output' + time + '.xlsx'
@@ -198,48 +245,94 @@ def sshAndStoreData(IdracList):
 
 def main():
     while(1):
-        NoOfIdracs = raw_input('Enter the number of IDRACs :')
-        if NoOfIdracs.isdigit():
-            break
-        elif "E" in NoOfIdracs:
+        type_of_input = raw_input(
+            'Want to read Idrac info from Xls, press Y/y else any key for user defined idrac info: ')
+        if type_of_input.isdigit():
+            print "Enter a character or Enter E to exit"
+            continue
+        elif "E" in type_of_input:
             print "Program terminated successfully"
             exit()
-        else:
-            print "Enter a number or Enter E to exit"
-            continue
-    NoOfIdracs = int(NoOfIdracs)
-    print NoOfIdracs
-    # Store IP, User and Password into a list
-    IdracList = []
-    for i in range(0, NoOfIdracs):
-        Idrac = []
-        print "Idrac :", i
-        while(1):
+        elif (type_of_input == "Y" or type_of_input == "y"):
+            NoOfIdracs = raw_input('Enter the number of IDRACs :')
+            NetworkAddress = raw_input(
+                'Enter the first three byte of Network:')
+            StartAddressLastByte = raw_input(
+                'Enter the Last byte to start from :')
+            dumy_ip = NetworkAddress + "." + StartAddressLastByte
             pat = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-            IpAddress = raw_input('Enter the IP Address :')
-            test = pat.match(IpAddress)
+            test = pat.match(dumy_ip)
             if test:
                 pass
             else:
-                print "Please Enter a valid IP!"
+                print "Not a valid IP address to start from!"
                 continue
-            Idrac.append(IpAddress)
-            User = raw_input('Enter the user name :')
-            Idrac.append(User)
-        #	Pass = raw_input('Enter the Password :')
-            Pass = getpass.getpass("Enter the password: ")
-        #	print Pass
-            Idrac.append(Pass)
-
-            check = raw_input(
-                'Data is stored successfully, press N/n to re-enter or press any key to move forward :')
-            if check == "N" or check == "n":
-                Idrac = []
-                continue
-            else:
-                IdracList.append(Idrac)
-                print IdracList
+            NoOfIdracs = int(NoOfIdracs)
+            IdracListXlsxFile = createXlsxForIdrac(
+                NoOfIdracs, str(NetworkAddress), int(StartAddressLastByte))
+            miss_nxt_user_entry = 1
+            break
+    IdracList = []
+    Idrac = []
+    if miss_nxt_user_entry == 0:
+        while(1):
+            NoOfIdracs = raw_input('Enter the number of IDRACs :')
+            if NoOfIdracs.isdigit():
                 break
+            elif "E" in NoOfIdracs:
+                print "Program terminated successfully"
+                exit()
+            else:
+                print "Enter a number or Enter E to exit"
+                continue
+        NoOfIdracs = int(NoOfIdracs)
+        print NoOfIdracs
+        # Store IP, User and Password into a list
+        
+        for i in range(0, NoOfIdracs):
+            Idrac = []
+            print "Idrac :", i
+            while(1):
+                pat = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
+                IpAddress = raw_input('Enter the IP Address :')
+                test = pat.match(IpAddress)
+                if test:
+                    pass
+                else:
+                    print "Please Enter a valid IP!"
+                    continue
+                Idrac.append(IpAddress)
+                User = raw_input('Enter the user name :')
+                Idrac.append(User)
+            #	Pass = raw_input('Enter the Password :')
+                Pass = getpass.getpass("Enter the password: ")
+            #	print Pass
+                Idrac.append(Pass)
+
+                check = raw_input(
+                    'Data is stored successfully, press N/n to re-enter or press any key to move forward :')
+                if check == "N" or check == "n":
+                    Idrac = []
+                    continue
+                else:
+                    IdracList.append(Idrac)
+                    print IdracList
+                    break
+    else:
+	print "loading files"
+        wb = load_workbook(IdracListXlsxFile)
+        ws = wb['IdracInfo']
+        xls_ind=2
+
+        for i in range(NoOfIdracs):
+            Idrac = []
+   #	    print IP_ADDRESS_COLUMN + str(xls_ind), ws[IP_ADDRESS_COLUMN + str(xls_ind)].value
+            Idrac.append(ws[IP_ADDRESS_COLUMN + str(xls_ind)].value)
+            Idrac.append(ws[USER_COLUMN + str(xls_ind)].value)
+            Idrac.append(ws[PASSWORD_COLUMN + str(xls_ind)].value)
+            IdracList.append(Idrac)
+	    xls_ind+=1
+        print IdracList
 
     if len(IdracList) == 0:
         print "IdracList is empty, terminating the application"
@@ -389,7 +482,7 @@ def main():
             cpu_info_dictionaries[i]['max_clock_Speed'] = cpu_max_clock_speed_list[i]
             cpu_info_dictionaries[i]['external_bus_clock_speed'] = cpu_ex_bus_clock_speed_list[i]
             cpu_info_dictionaries[i]['hyper_threading_enabled'] = cpu_hyper_thread_list[i]
-            if cpu_hyper_thread_list[i] == "Yes":
+            if cpu_hyper_thread_list[i] == "Yes" or cpu_hyper_thread_list[i] == "1":
                 total_threads += int(cpu_enabled_thread_list[i])
             cpu_info_dictionaries[i]['cpu_status'] = cpu_status_list[i]
         # Store list of dictionaries into a list
@@ -490,8 +583,8 @@ def main():
         ]for i in range(4))
         driv_blck_siz_byte_list, driv_bus_protocol_list, driv_serial_no_list, driv_manufacturer_list = ([
         ]for i in range(4))
-        driv_fqdd_list, driv_slot_list, driv_raid_status_list, driv_predictiv_fail_status_list = ([
-        ]for i in range(4))
+        driv_fqdd_list, driv_slot_list, driv_raid_status_list, driv_predictiv_fail_status_list, driv_free_siz_byte_list, driv_total_siz_list = ([
+        ]for i in range(6))
         # Store drive sections into the list
         Drive_section_list = [s for s, s in enumerate(
             Config.sections()) if ("InstanceID: Disk") in s]
@@ -518,7 +611,13 @@ def main():
                 Config.get(str(dev_sec), 'MaxCapableSpeed')]
             driv_used_siz_byte_list += [
                 Config.get(str(dev_sec), 'UsedSizeInBytes')]
-            temp_size_list += [Config.get(str(dev_sec), 'UsedSizeInBytes')]
+            driv_free_siz_byte_list += [
+                Config.get(str(dev_sec), 'FreeSizeInBytes')]
+            total_hard_size = int(Config.get(str(dev_sec), 'UsedSizeInBytes').split(" ")[0]) + int(
+                Config.get(str(dev_sec), 'FreeSizeInBytes').split(" ")[0])
+            total_hard_size /= math.pow(1024, 3)
+#	    print total_hard_size
+            driv_total_siz_list.append(total_hard_size)
             driv_media_typ_list += [Config.get(str(dev_sec), 'MediaType')]
             if ("SSD" in Config.get(str(dev_sec), 'MediaType')):
                 check_ssd = 1
@@ -536,13 +635,12 @@ def main():
             driv_predictiv_fail_status_list += [
                 Config.get(str(dev_sec), 'PredictiveFailureState')]
         # Adjust the size of each hardrives
-        for index in range(0, len(temp_size_list)):
-            if "Bytes" in driv_used_siz_byte_list[index]:
-                value = int(temp_size_list[index].replace("Bytes", ""))
-                value /= 1024 * 1024 * 1024
-                temp_size_list[index] = value
-
-        total_size = (sum([int(x) for x in temp_size_list]))
+ #       for index in range(0, len(driv_total_byte_list)):
+  #          value = int(driv_total_byte_list[index])
+   #         value /= float(1024 * 1024 * 1024)
+    #        driv_total_siz_list[index] = value
+        print driv_total_siz_list
+        total_size = (sum([int(x) for x in driv_total_siz_list]))
         driv_slots = len(Drive_section_list)
         driv_info_hdd_dictionaries = [dict() for x in range(driv_slots)]
         driv_info_ssd_dictionaries = [dict() for x in range(driv_slots)]
@@ -558,6 +656,9 @@ def main():
                 driv_info_hdd_dictionaries[hdd_index]['sas_address'] = driv_sas_address_list[i]
                 driv_info_hdd_dictionaries[hdd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
                 driv_info_hdd_dictionaries[hdd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
+                driv_info_hdd_dictionaries[hdd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
+                driv_info_hdd_dictionaries[hdd_index]['total_size_in_giga_bytes'] = str(
+                    driv_total_siz_list[i]) + " GB"
 #		    driv_info_hdd_dictionaries[hdd_index]['media_type'] = driv_media_typ_list[i]
                 driv_info_hdd_dictionaries[hdd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
                 driv_info_hdd_dictionaries[hdd_index]['bus_protocol'] = driv_bus_protocol_list[i]
@@ -575,6 +676,9 @@ def main():
                 driv_info_ssd_dictionaries[ssd_index]['sas_address'] = driv_sas_address_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
+                driv_info_hdd_dictionaries[ssd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
+                driv_info_hdd_dictionaries[ssd_index]['total_size_in_giga_bytes'] = str(
+                    driv_total_siz_list[i]) + " GB"
 #		    driv_info_ssd_dictionaries[ssd_index]['media_type'] = driv_media_typ_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['bus_protocol'] = driv_bus_protocol_list[i]
