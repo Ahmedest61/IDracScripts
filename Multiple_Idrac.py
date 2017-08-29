@@ -18,10 +18,14 @@ USER_COLUMN = 'B'
 PASSWORD_COLUMN = 'C'
 
 try:
+    import Queue
     import getpass
     import string
     import paramiko
     import re
+    from multiprocessing import Process
+    import threading
+    from threading import *
     # import subprocess
     import math
     from math import *
@@ -146,14 +150,8 @@ def CreateXLS(filename):
         for mem in range(len(mem_model_set)):
             dumy_str += str(mem_model_set.keys()[mem]) + " x " + "Count: " + str(mem_model_set.values()[
                 mem]) + " Speed: " + mem_model_dict[str(mem_model_set.keys()[mem])] + "\n"
-	    print dumy_str
+            print dumy_str
         ws[MEMORY_INFO_COLUMN + str_index].value = dumy_str
-#        for mem_slot in range(0, 1):
- #           dumy_str += str(ws[MEMORY_SLOT_COLUMN + str_index].value) + " x " + data[idrac]['memory_info'][mem_slot]['model'] + \
-  #              " Speed: " + \
-   #             data[idrac]['memory_info'][mem_slot]['speed'] + "\n"
-    #    ws[MEMORY_INFO_COLUMN + str_index].value = dumy_str
-#	print dumy_str
         dumy_str = ''
         for cpu_slot in range(ws[CPU_COLUMN + str_index].value):
             dumy_str += data[idrac]['cpu_info'][cpu_slot]['model'] + "\t" + \
@@ -185,9 +183,6 @@ def CreateXLS(filename):
             dumy_str = ''
             driv_type_dict = {}
             # Adjust the size of hardrives i.e write 586 GB as 600, 1024 GB as 1TB and make a dictionary size vs number (600 GB x 4)
-#	    print "Slots"
-#	    print data[idrac]['drives_type'][drives[driv_type]]
-      #      print data[idrac]['drives_type'][drives[driv_type]]
             for driv_slot in range(data[idrac]['drives_type'][drives[driv_type]]):
                 size_val = float(data[idrac]['drives_info'][drives[driv_type]]
                                  [driv_slot]['total_size_in_giga_bytes'].split(" ")[0])
@@ -255,24 +250,40 @@ def CreateXLS(filename):
     wb.save(name)
 
 
+def process_idrac(idrac_info, HwList, idracNo):
+    ssh = paramiko.SSHClient()
+    ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+    try:
+        ssh.connect(idrac_info[0], username=idrac_info[1],
+                    password=idrac_info[2])
+        stdin, stdout, stderr = ssh.exec_command("racadm hwinventory")
+        HwList[idracNo] = stdout.readlines()
+        ssh.close()
+    except Exception as e:
+        print e
+        print "ssh.connect not work for Idrac with IP: ", idrac_info[0]
+    return
+
+
 def sshAndStoreData(IdracList):
-    HwInventoryList = []
+
+    HwInventoryList = [0] * len(IdracList)
+    threads = []
     for idracNo in range(0, len(IdracList)):
 
-        ssh = paramiko.SSHClient()
-        ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
-        try:
-            ssh.connect(IdracList[idracNo][0], username=IdracList[idracNo]
-                        [1], password=IdracList[idracNo][2])
-            stdin, stdout, stderr = ssh.exec_command("racadm hwinventory")
-            HwInventoryList.append(stdout.readlines())
-            ssh.close()
-        except Exception as e:
-            print "ssh.connect not work for Idrac with IP: ", IdracList[idracNo][0]
+        nam = "Idrac" + str(idracNo)
+        #Process(target=process_idrac, args=(HwInventoryList[idracNo], IdracList[idracNo][0], IdracList[idracNo][1], IdracList[idracNo][2],)).start()
+        thread = threading.Thread(
+            name=nam, target=process_idrac, args=(IdracList[idracNo], HwInventoryList, idracNo,))
+        thread.start()
+        threads.append(thread)
+    for x in threads:
+        x.join()
     return HwInventoryList
 
 
 def main():
+    miss_nxt_user_entry = 0
     while(1):
         type_of_input = raw_input(
             'Want to read Idrac info from Xls, press Y/y else any key for user defined idrac info: ')
@@ -300,6 +311,8 @@ def main():
             IdracListXlsxFile = createXlsxForIdrac(
                 NoOfIdracs, str(NetworkAddress), int(StartAddressLastByte))
             miss_nxt_user_entry = 1
+            break
+        else:
             break
     IdracList = []
     Idrac = []
@@ -369,6 +382,7 @@ def main():
     # Using the stored information ssh into the server and get Hwinventory
 
     HwInventoryList = sshAndStoreData(IdracList)
+   # print HwInventoryList
 
     TotalIdracsOutputs = len(HwInventoryList)
     # Final list of idracs
@@ -400,18 +414,23 @@ def main():
         try:
             Config = ConfigParser.ConfigParser()
             Config.read(filename)
+#	    print Config.sections()
         except (ConfigParser.MissingSectionHeaderError,
                 ConfigParser.ParsingError):
             print "No Section header"
         if " " in Config.sections():
             print "No section, exiting"
         # Store memory sections into the list
-        Mem_section_list = [s for s, s in enumerate(
-            Config.sections()) if "InstanceID: DIMM.Socket" in s]
+        for s in Config.sections():
+            if "InstanceID: DIMM.Socket" in s:
+                Mem_section_list += [s]
+ #       Mem_section_list = [s for s, s in enumerate(
+  #          Config.sections()) if "InstanceID: DIMM.Socket" in s]
         # Extract key, values from memory sections
         for mem_sec in Mem_section_list:
             mem_size_list += [Config.get(str(mem_sec), 'Size')]
-            mem_speed_list += [Config.get(str(mem_sec), 'CurrentOperatingSpeed')]
+            mem_speed_list += [Config.get(str(mem_sec),
+                                          'CurrentOperatingSpeed')]
             mem_descp_list += [Config.get(str(mem_sec), 'Manufacturer')]
             mem_serial_list += [Config.get(str(mem_sec), 'SerialNumber')]
             mem_model_list += [Config.get(str(mem_sec), 'Model')]
@@ -468,8 +487,11 @@ def main():
             []for i in range(3))
 
         # Store cpu sections into the list
-        Cpu_section_list = [s for s, s in enumerate(
-            Config.sections()) if "InstanceID: CPU.Socket" in s]
+        for s in Config.sections():
+            if "InstanceID: CPU.Socket" in s:
+                Cpu_section_list += [s]
+#        Cpu_section_list = [s for s, s in enumerate(
+ #           Config.sections()) if "InstanceID: CPU.Socket" in s]
         # Extract key, values from cpu sections
         for cpu_sec in Cpu_section_list:
             cpu_processor_list += [Config.get(str(cpu_sec),
@@ -529,8 +551,11 @@ def main():
         ]for i in range(4))
         nic_fun_no_list, nic_dev_no_list = ([]for i in range(2))
         # Store nic sections into the list
-        Nic_section_list = [s for s, s in enumerate(
-            Config.sections()) if "InstanceID: NIC" in s]
+        for s in Config.sections():
+            if "InstanceID: NIC" in s:
+                Nic_section_list += [s]
+   #     Nic_section_list = [s for s, s in enumerate(
+    #        Config.sections()) if "InstanceID: NIC" in s]
         # Make a set of nics, this will be used for identifying the ports as a nic may contain more than 1 port
         Nic_set = set()
         port_slots = len(Nic_section_list)
@@ -615,8 +640,11 @@ def main():
         driv_fqdd_list, driv_slot_list, driv_raid_status_list, driv_predictiv_fail_status_list, driv_free_siz_byte_list, driv_total_siz_list = ([
         ]for i in range(6))
         # Store drive sections into the list
-        Drive_section_list = [s for s, s in enumerate(
-            Config.sections()) if ("InstanceID: Disk") in s]
+        for s in Config.sections():
+            if "InstanceID: Disk" in s:
+                Drive_section_list += [s]
+   #     Drive_section_list = [s for s, s in enumerate(
+    #        Config.sections()) if ("InstanceID: Disk") in s]
         i = 0
         drive_list_len = len(Drive_section_list)
         # Filter the physical hardrives
@@ -735,10 +763,13 @@ def main():
         idrac_dumy_dic['drives_type'] = driv_type_dict
         idrac_dumy_dic['total_drives_size'] = str(total_size) + " GB"
         idrac_dumy_dic['drives_info'] = driv_dict
-
+        Sys_section_list = []
         # Store sys sections into the list
-        Sys_section_list = [s for s, s in enumerate(
-            Config.sections()) if "InstanceID: System.Embedded" in s]
+        for s in Config.sections():
+            if "InstanceID: System.Embedded" in s:
+                Sys_section_list += [s]
+ #       Sys_section_list = [s for s, s in enumerate(
+  #          Config.sections()) if "InstanceID: System.Embedded" in s]
         idrac_dumy_dic['service_tag'] = Config.get(
             str(Sys_section_list[0]), 'ServiceTag')
 
