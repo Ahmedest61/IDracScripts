@@ -28,15 +28,15 @@ try:
     # from subprocess import *
     import os
     import json
-    import pandas as pd
-    from pandas.io.json import json_normalize
+  #  import pandas as pd
+  #  from pandas.io.json import json_normalize
     from datetime import datetime
     from ConfigParser import *
     from ConfigParser import (ConfigParser, MissingSectionHeaderError,
                               ParsingError, DEFAULTSECT)
     import ConfigParser
     import collections
-    from collections import OrderedDict
+    from collections import OrderedDict, Counter
     from openpyxl import *
     from openpyxl.styles import *
 except ImportError as error:
@@ -47,7 +47,7 @@ except ImportError as error:
 def createXlsxForIdrac(no_of_idracs, address, start):
     ip = address
     user = "root"
-    password = "Nfv1234"
+    password = "calvin"
     wb = Workbook()
     ws = wb.active
     ws.title = "IdracInfo"
@@ -111,28 +111,49 @@ def CreateXLS(filename):
         ws[NIC_COLUMN + str_index].value = data[idrac]['nic_slots']
         ws[PORT_COLUMN + str_index].value = data[idrac]['ports']
         drives = []
+        print data[idrac]['drives_type']
         # Get to knmow the types of drives i.e. HDD and SSD
         for ind in range(len(data[idrac]['drives_type'])):
-            for key, value in data[idrac]['drives_type'][ind].iteritems():
-                drives.append(key)
+            for key, value in data[idrac]['drives_type'].iteritems():
+                if key not in drives:
+                    drives.append(key)
         print drives
         tot_driv = 0
         # Calculate totaal drives using type (HDD or SSD)
         for ind in range(len(drives)):
-            print data[idrac]['drives_type'][ind][drives[ind]]
-            tot_driv += int(data[idrac]['drives_type'][ind][drives[ind]])
-#        print drives, tot_driv
+           #         print data[idrac]['drives_type'][drives[ind]]
+            tot_driv += int(data[idrac]['drives_type'][drives[ind]])
+   #     print drives, tot_driv
         ws[DRIVE_COLUMN + str_index].value = tot_driv
 
         dumy_str = ''
-#       for mem_slot in range(ws[MEMORY_SLOT_COLUMN + str_index].value):
+        dumy_mem_model_list = []
+        dumy_mem_speed_list = []
+        mem_model_dict = dict()
 
-        for mem_slot in range(0, 1):
-            dumy_str += str(ws[MEMORY_SLOT_COLUMN + str_index].value) + " x " + data[idrac]['memory_info'][mem_slot]['model'] + \
-                " Speed: " + \
-                data[idrac]['memory_info'][mem_slot]['speed'] + "\n"
+        for mem_slot in range(ws[MEMORY_SLOT_COLUMN + str_index].value):
+            dumy_mem_model_list.append(
+                data[idrac]['memory_info'][mem_slot]['model'])
+            dumy_mem_speed_list.append(
+                data[idrac]['memory_info'][mem_slot]['speed'])
+            if data[idrac]['memory_info'][mem_slot]['model'] not in mem_model_dict:
+                mem_model_dict[data[idrac]['memory_info'][mem_slot]
+                               ['model']] = data[idrac]['memory_info'][mem_slot]['speed']
+
+        mem_model_set = Counter(dumy_mem_model_list)
+  #      mem_model_set = collections.Counter(dumy_mem_model_list)
+        print dumy_mem_model_list, mem_model_set, mem_model_dict
+        for mem in range(len(mem_model_set)):
+            dumy_str += str(mem_model_set.keys()[mem]) + " x " + "Count: " + str(mem_model_set.values()[
+                mem]) + " Speed: " + mem_model_dict[str(mem_model_set.keys()[mem])] + "\n"
+	    print dumy_str
         ws[MEMORY_INFO_COLUMN + str_index].value = dumy_str
-
+#        for mem_slot in range(0, 1):
+ #           dumy_str += str(ws[MEMORY_SLOT_COLUMN + str_index].value) + " x " + data[idrac]['memory_info'][mem_slot]['model'] + \
+  #              " Speed: " + \
+   #             data[idrac]['memory_info'][mem_slot]['speed'] + "\n"
+    #    ws[MEMORY_INFO_COLUMN + str_index].value = dumy_str
+#	print dumy_str
         dumy_str = ''
         for cpu_slot in range(ws[CPU_COLUMN + str_index].value):
             dumy_str += data[idrac]['cpu_info'][cpu_slot]['model'] + "\t" + \
@@ -164,8 +185,11 @@ def CreateXLS(filename):
             dumy_str = ''
             driv_type_dict = {}
             # Adjust the size of hardrives i.e write 586 GB as 600, 1024 GB as 1TB and make a dictionary size vs number (600 GB x 4)
-            for driv_slot in range(data[idrac]['drives_type'][driv_type][drives[driv_type]]):
-                size_val = float(data[idrac]['drives_info'][driv_type][drives[driv_type]]
+#	    print "Slots"
+#	    print data[idrac]['drives_type'][drives[driv_type]]
+      #      print data[idrac]['drives_type'][drives[driv_type]]
+            for driv_slot in range(data[idrac]['drives_type'][drives[driv_type]]):
+                size_val = float(data[idrac]['drives_info'][drives[driv_type]]
                                  [driv_slot]['total_size_in_giga_bytes'].split(" ")[0])
                 if 150 < size_val < 200:
                     size_val = 200
@@ -176,50 +200,55 @@ def CreateXLS(filename):
                 elif 250 < size_val < 300:
                     size_val = 300
                     typ = " GB"
+                elif 400 < size_val < 500:
+                    size_val = 500
+                    typ = " GB"
                 elif 500 < size_val < 600:
                     size_val = 600
                     typ = " GB"
                 elif size_val > 1024:
-                    size_val = round(size_val / float(1024),2)
+                    size_val = round(size_val / float(1024), 2)
                     typ = " TB"
                 else:
                     size_val = size_val
                     typ = " GB"
-                print size_val
-		
+               # print size_val
+
                 drives_size_list[driv_type].append(size_val)
                 if str(size_val) not in driv_type_dict:
                     driv_type_dict[str(size_val)] = typ
             # Count the common drives
             drive_set = collections.Counter(drives_size_list[driv_type])
-
+            print drive_set, driv_type_dict
             for drive in range(len(drive_set)):
                 if "TB" in driv_type_dict[str(drive_set.keys()[drive])]:
-		    drive_set.keys()[drive]=round(drive_set.keys()[drive],2)
+                    drive_set.keys()[drive] = round(drive_set.keys()[drive], 2)
                     total_mem += (drive_set.keys()
                                   [drive]) * (drive_set.values()[drive]) * 1024
                 elif "GB" in driv_type_dict[str(drive_set.keys()[drive])]:
+                    # print type(drive_set.keys()[drive]), type(drive_set.values()[drive]), total_mem
                     total_mem += (drive_set.keys()
                                   [drive]) * (drive_set.values()[drive])
                 dumy_str += str(drive_set.keys()[drive]) + driv_type_dict[str(drive_set.keys()[
                     drive])] + " x " + "Count: " + str(drive_set.values()[drive]) + "\n"
             # Save Drives Size vs No of drives
             drives_info_list[driv_type] = dumy_str
-	    if total_mem > 1024:
-	    	total_mem/=float(1024)
-		total_mem=round(total_mem)
-	    	total_mem=str(total_mem)+" TB"
-	    else:
-		total_mem=str(total_mem)+" TB"
-        print drives_info_list, total_mem
-        for ind in range(len(data[idrac]['drives_type'])):
-            if "HDD" in data[idrac]['drives_type'][ind]:
+        print total_mem
+        if total_mem > 1024:
+            total_mem /= float(1024)
+            total_mem = round(total_mem)
+            total_mem = str(total_mem) + " TB"
+        else:
+            total_mem = str(total_mem) + " GB"
+   #     print drives_info_list, total_mem
+        for ind in range(len(drives)):
+            if "HDD" in drives[ind]:
                 ws[HDD_DRIVE_INFO_COLUMN + str_index].value = drives_info_list[ind]
-            elif "SSD" in data[idrac]['drives_type'][ind]:
+            elif "SSD" in drives[ind]:
                 ws[SSD_DRIVE_INFO_COLUMN + str_index].value = drives_info_list[ind]
 
         ws[DRIVE_SIZE_COLUMN +
-            str_index].value = (total_mem) 
+            str_index].value = (total_mem)
         index += 1
     time = datetime.utcnow().strftime("%s")
     name = 'Output' + time + '.xlsx'
@@ -288,7 +317,7 @@ def main():
         NoOfIdracs = int(NoOfIdracs)
         print NoOfIdracs
         # Store IP, User and Password into a list
-        
+
         for i in range(0, NoOfIdracs):
             Idrac = []
             print "Idrac :", i
@@ -319,10 +348,10 @@ def main():
                     print IdracList
                     break
     else:
-	print "loading files"
+        print "loading files"
         wb = load_workbook(IdracListXlsxFile)
         ws = wb['IdracInfo']
-        xls_ind=2
+        xls_ind = 2
 
         for i in range(NoOfIdracs):
             Idrac = []
@@ -331,7 +360,7 @@ def main():
             Idrac.append(ws[USER_COLUMN + str(xls_ind)].value)
             Idrac.append(ws[PASSWORD_COLUMN + str(xls_ind)].value)
             IdracList.append(Idrac)
-	    xls_ind+=1
+            xls_ind += 1
         print IdracList
 
     if len(IdracList) == 0:
@@ -382,7 +411,7 @@ def main():
         # Extract key, values from memory sections
         for mem_sec in Mem_section_list:
             mem_size_list += [Config.get(str(mem_sec), 'Size')]
-            mem_speed_list += [Config.get(str(mem_sec), 'speed')]
+            mem_speed_list += [Config.get(str(mem_sec), 'CurrentOperatingSpeed')]
             mem_descp_list += [Config.get(str(mem_sec), 'Manufacturer')]
             mem_serial_list += [Config.get(str(mem_sec), 'SerialNumber')]
             mem_model_list += [Config.get(str(mem_sec), 'Model')]
@@ -619,10 +648,10 @@ def main():
 #	    print total_hard_size
             driv_total_siz_list.append(total_hard_size)
             driv_media_typ_list += [Config.get(str(dev_sec), 'MediaType')]
-            if ("SSD" in Config.get(str(dev_sec), 'MediaType')):
-                check_ssd = 1
-            else:
-                check_hdd = 1
+            if ("Solid State Drive" in Config.get(str(dev_sec), 'MediaType')):
+                check_ssd += 1
+            if ("HDD" in Config.get(str(dev_sec), 'MediaType')):
+                check_hdd += 1
             driv_blck_siz_byte_list += [
                 Config.get(str(dev_sec), 'BlockSizeInBytes')]
             driv_bus_protocol_list += [Config.get(str(dev_sec), 'BusProtocol')]
@@ -639,11 +668,11 @@ def main():
   #          value = int(driv_total_byte_list[index])
    #         value /= float(1024 * 1024 * 1024)
     #        driv_total_siz_list[index] = value
-        print driv_total_siz_list
+#        print driv_total_siz_list
         total_size = (sum([int(x) for x in driv_total_siz_list]))
         driv_slots = len(Drive_section_list)
-        driv_info_hdd_dictionaries = [dict() for x in range(driv_slots)]
-        driv_info_ssd_dictionaries = [dict() for x in range(driv_slots)]
+        driv_info_hdd_dictionaries = [dict() for x in range(check_hdd)]
+        driv_info_ssd_dictionaries = [dict() for x in range(check_ssd)]
         driv_info_list = []
         # Store hardrive key value individually into the list of dictionaries
         hdd_index = 0
@@ -669,15 +698,16 @@ def main():
                 driv_info_hdd_dictionaries[hdd_index]['raid_status'] = driv_raid_status_list[i]
                 driv_info_hdd_dictionaries[hdd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
                 hdd_index += 1
-            elif "SSD" in driv_media_typ_list[i]:
+            elif "Solid State Drive" in driv_media_typ_list[i]:
                 driv_info_ssd_dictionaries[ssd_index]['device_type'] = driv_dev_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['device_description'] = driv_dev_descrp_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['ppid'] = driv_ppid_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['sas_address'] = driv_sas_address_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
-                driv_info_hdd_dictionaries[ssd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
-                driv_info_hdd_dictionaries[ssd_index]['total_size_in_giga_bytes'] = str(
+                driv_info_ssd_dictionaries[ssd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
+
+                driv_info_ssd_dictionaries[ssd_index]['total_size_in_giga_bytes'] = str(
                     driv_total_siz_list[i]) + " GB"
 #		    driv_info_ssd_dictionaries[ssd_index]['media_type'] = driv_media_typ_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
@@ -689,22 +719,22 @@ def main():
                 driv_info_ssd_dictionaries[ssd_index]['raid_status'] = driv_raid_status_list[i]
                 driv_info_ssd_dictionaries[ssd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
                 ssd_index += 1
-#	print driv_info_hdd_dictionaries
+
         driv_dict = dict()
         driv_type_dict = dict()
-        driv_type_list = []
+#        driv_type_list = []
 #        idrac_dumy_dic['drives'] = driv_slots
-        if check_ssd == 1:
+        if check_ssd > 0:
             driv_dict['SSD'] = driv_info_ssd_dictionaries
             driv_type_dict['SSD'] = ssd_index
-        elif check_hdd == 1:
+        if check_hdd > 0:
             driv_dict['HDD'] = driv_info_hdd_dictionaries
             driv_type_dict['HDD'] = hdd_index
-        driv_info_list.append(driv_dict)
-        driv_type_list.append(driv_type_dict)
-        idrac_dumy_dic['drives_type'] = driv_type_list
+ #       driv_info_list.append(driv_dict)
+#        driv_type_list.append(driv_type_dict)
+        idrac_dumy_dic['drives_type'] = driv_type_dict
         idrac_dumy_dic['total_drives_size'] = str(total_size) + " GB"
-        idrac_dumy_dic['drives_info'] = driv_info_list
+        idrac_dumy_dic['drives_info'] = driv_dict
 
         # Store sys sections into the list
         Sys_section_list = [s for s, s in enumerate(
