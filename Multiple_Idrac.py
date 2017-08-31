@@ -50,9 +50,12 @@ except ImportError as error:
     print "You don't have module \"{0}\" installed.".format(error.message[16:])
     exit(1)
 
-def createXlsxForIdracs(ip_set):
-    user = "root"
-    password = "calvin"
+# function for creating a xlsx with ip, user and password field
+
+
+def createXlsxForIdracs(ip_set, user, pas):
+    user = str(user)
+    password = str(pas)
     wb = Workbook()
     ws = wb.active
     ws.title = "IdracInfo"
@@ -65,7 +68,7 @@ def createXlsxForIdracs(ip_set):
         ws[columns_alphabat[i] + str(1)].fill = yellowFill
         ws[columns_alphabat[i] + str(1)] = columns_heading[i]
         i += 1
-        
+
     index = 2
     for ip in ip_set:
         str_index = str(index)
@@ -75,7 +78,10 @@ def createXlsxForIdracs(ip_set):
         index += 1
     name = 'IdracsList' + '.xlsx'
     wb.save(name)
-    return index-2,name
+    return index - 2, name
+
+# fucntion for creating a xlsx by giving a number of idracs along with the three byte ip address and last byte
+
 
 def createXlsxForIdrac(no_of_idracs, address, start):
     ip = address
@@ -107,6 +113,8 @@ def createXlsxForIdrac(no_of_idracs, address, start):
     wb.save(name)
     return name
 
+# function for creating xlsx using json file
+
 
 def CreateXLS(filename):
     with open(filename) as data_file:
@@ -127,9 +135,11 @@ def CreateXLS(filename):
     while(i < len(columns_heading)):
         ws[columns_alphabat[i] + str(1)].fill = yellowFill
         ws[columns_alphabat[i] + str(1)] = columns_heading[i]
-#	ws.column_dimensions[columns_alphabat[i]+str(1)].width = (len(columns_heading[i])+2)*1.2
-        i += 1
 
+#        ws.freeze_panes = ws[columns_alphabat[i] + str(1)]
+        i += 1
+    # freeze the top row
+    ws.freeze_panes = 'A2'
     # Fill the data into the columns
     index = 2
     for idrac in range(len((data))):
@@ -146,13 +156,13 @@ def CreateXLS(filename):
         ws[PORT_COLUMN + str_index].value = data[idrac]['ports']
 
         drives = []
-        print data[idrac]['drives_type']
-        # Get to knmow the types of drives i.e. HDD and SSD
+  #      print data[idrac]['drives_type']
+        # Get to knmow the types of drives i.e. HDD and SSD and save it into a list
         for ind in range(len(data[idrac]['drives_type'])):
             for key, value in data[idrac]['drives_type'].iteritems():
                 if key not in drives:
                     drives.append(key)
-        print drives
+        # print drives
         tot_driv = 0
         # Calculate totaal drives using type (HDD or SSD)
         for ind in range(len(drives)):
@@ -165,7 +175,7 @@ def CreateXLS(filename):
         dumy_mem_model_list = []
         dumy_mem_speed_list = []
         mem_model_dict = dict()
-
+        # fill the memory model list,speed list and fill a dictionary model vs speed
         for mem_slot in range(ws[MEMORY_SLOT_COLUMN + str_index].value):
             dumy_mem_model_list.append(
                 data[idrac]['memory_info'][mem_slot]['model'])
@@ -174,15 +184,17 @@ def CreateXLS(filename):
             if data[idrac]['memory_info'][mem_slot]['model'] not in mem_model_dict:
                 mem_model_dict[data[idrac]['memory_info'][mem_slot]
                                ['model']] = data[idrac]['memory_info'][mem_slot]['speed']
-
+        # count the common memory model
         mem_model_set = Counter(dumy_mem_model_list)
   #      mem_model_set = collections.Counter(dumy_mem_model_list)
-        print dumy_mem_model_list, mem_model_set, mem_model_dict
+     #   print dumy_mem_model_list, mem_model_set, mem_model_dict
+        # fill the memory info (model and speed)
         for mem in range(len(mem_model_set)):
             dumy_str += str(mem_model_set.keys()[mem]) + " x " + "Count: " + str(mem_model_set.values()[
                 mem]) + " Speed: " + mem_model_dict[str(mem_model_set.keys()[mem])] + "\n"
-            print dumy_str
+       #     print dumy_str
         ws[MEMORY_INFO_COLUMN + str_index].value = dumy_str
+        # align the values fr the xls
         ws[MEMORY_INFO_COLUMN + str_index].alignment = Alignment(wrapText=True)
 
         dumy_str = ''
@@ -244,11 +256,13 @@ def CreateXLS(filename):
                # print size_val
 
                 drives_size_list[driv_type].append(size_val)
+                # fill the dictionary (Size vs type "HDD or SSD")
                 if str(size_val) not in driv_type_dict:
                     driv_type_dict[str(size_val)] = typ
             # Count the common drives
             drive_set = collections.Counter(drives_size_list[driv_type])
-            print drive_set, driv_type_dict
+        #    print drive_set, driv_type_dict
+            # calculate total drive size and fill the drive info column
             for drive in range(len(drive_set)):
                 if "TB" in driv_type_dict[str(drive_set.keys()[drive])]:
                     drive_set.keys()[drive] = round(drive_set.keys()[drive], 2)
@@ -260,9 +274,10 @@ def CreateXLS(filename):
                                   [drive]) * (drive_set.values()[drive])
                 dumy_str += str(drive_set.keys()[drive]) + driv_type_dict[str(drive_set.keys()[
                     drive])] + " x " + "Count: " + str(drive_set.values()[drive]) + "\n"
-            # Save Drives Size vs No of drives
+            # Save Drives Size and No of drives into list seperatey for HDD or SSD
             drives_info_list[driv_type] = dumy_str
-        print total_mem
+     #   print total_mem
+        # adjust total memory
         if total_mem > 1024:
             total_mem /= float(1024)
             total_mem = round(total_mem)
@@ -270,6 +285,7 @@ def CreateXLS(filename):
         else:
             total_mem = str(total_mem) + " GB"
    #     print drives_info_list, total_mem
+        # fill the HDD or SSD column of xlxs
         for ind in range(len(drives)):
             if "HDD" in drives[ind]:
                 ws[HDD_DRIVE_INFO_COLUMN + str_index].value = drives_info_list[ind]
@@ -283,26 +299,34 @@ def CreateXLS(filename):
         ws[DRIVE_SIZE_COLUMN +
             str_index].value = (total_mem)
         index += 1
-#    index = 2
- #   for col in range(len((columns_alphabat))):
- #       str_index = str(index)
-#	print ws[columns_alphabat[col]+str_index].value
-#	ws.column_dimensions[columns_alphabat[col]+str_index].width=len(ws[columns_alphabat[col]+str_index].value)
+    # set the width of columns and save xlsx
     dims = {}
+    max_siz = 0
     for row in ws.rows:
         for cell in row:
             if cell.value:
-             #   print cell.value
-                dims[cell.column] = max(
-                    (dims.get(cell.column, 0), len(str(cell.value))))
+                if "\n" in str(cell.value) and len(str(cell.value)) > 100:
+                    #    print str(cell.value),len(str(cell.value))
+                    dumy = str(cell.value).split("\n")
+                    for i in range(len(dumy)):
+                        siz = len(dumy[i])
+                        if siz > max_siz:
+                            max_siz = siz
+                    dims[cell.column] = max(
+                        (dims.get(cell.column, 0), max_siz))
+                else:
+                    dims[cell.column] = max(
+                        (dims.get(cell.column, 0), len(str(cell.value))))
     for col, value in dims.items():
         ws.column_dimensions[col].width = value
     timestr = time.strftime("%Y%m%d_%H%M%S")
     name = 'Output' + timestr + '.xlsx'
     wb.save(name)
 
+# function will ssh into an idrac and saves the output into the HwList
 
-def process_idrac(idrac_info, HwList, idracNo):
+
+def process_idrac(idrac_info, HwList, idracNo, logfptr):
     ssh = paramiko.SSHClient()
     ssh.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
@@ -313,30 +337,37 @@ def process_idrac(idrac_info, HwList, idracNo):
         ssh.close()
     except Exception as e:
         time.sleep(2)
-        print "ssh.connect not work for Idrac: ", idrac_info[0], idrac_info[1], idrac_info[2], e
+        logfptr.write("ssh.connect not work for Idrac: %s %s %s %s\n" %
+                      (idrac_info[0], idrac_info[1], idrac_info[2], e))
+#        print "ssh.connect not work for Idrac: ", idrac_info[0], idrac_info[1], idrac_info[2], e
     return
 
+# funtion creates threads for idracs for ssh and returns their output into a list
 
-def sshAndStoreData(IdracList):
+
+def sshAndStoreData(IdracList, logfptr):
 
     HwInventoryList = [0] * len(IdracList)
-    print len(HwInventoryList)
+    # print len(HwInventoryList)
     threads = []
     for idracNo in range(0, len(IdracList)):
 
         nam = "Idrac" + str(idracNo)
         #Process(target=process_idrac, args=(HwInventoryList[idracNo], IdracList[idracNo][0], IdracList[idracNo][1], IdracList[idracNo][2],)).start()
         thread = threading.Thread(
-            name=nam, target=process_idrac, args=(IdracList[idracNo], HwInventoryList, idracNo,))
+            name=nam, target=process_idrac, args=(IdracList[idracNo], HwInventoryList, idracNo, logfptr,))
         thread.start()
         threads.append(thread)
     for x in threads:
         x.join()
     return HwInventoryList
 
+
+# idrac default usr and password
 IDRAC_FACTORY_ADMIN_USER_CREDENTIALS = {
     'user_name': 'root',
     'password': 'calvin'}
+
 
 def ip_address_from_address(address):
     try:
@@ -368,7 +399,7 @@ def ip_set_from_address_range(start, end):
     try:
         start_ip_address = ip_address_from_address(start)
         end_ip_address = ip_address_from_address(end)
-        print start_ip_address, end_ip_address
+       # print start_ip_address, end_ip_address
     except (NotSupported, ValueError) as e:
         raise ValueError(
             ('invalid IP range: %(start)s-%(end)s (%(message)s)') %
@@ -396,9 +427,10 @@ def ip_set_from_address_range(start, end):
 
     return netaddr.IPSet(ip_range)
 
+
 def ip_set_from_address(address):
     ip_set = netaddr.IPSet()
-    #print address
+    # print address
     try:
         ip_address = ip_address_from_address(address)
         ip_set.add(ip_address)
@@ -410,24 +442,16 @@ def ip_set_from_address(address):
 
 
 def parse_idrac_arguments(idrac_list):
-   # print idrac_list
     ip_set = netaddr.IPSet()
-   # print ip_set
     for idrac in idrac_list:
-        #print "idrac"
-        #print idrac
         ip_set = ip_set.union(ip_set_from_idrac(idrac))
-  #      print "ip_Set"
-   #     print ip_set
     return ip_set
+
 
 def ip_set_from_idrac(idrac):
     range_bounds = idrac.split('-')
-  #  print range_bounds
-    
     if len(range_bounds) == 2:
         start, end = range_bounds
-   #     print start, end
         ip_set = ip_set_from_address_range(start, end)
     elif len(range_bounds) == 1:
         ip_set = ip_set_from_address(range_bounds[0])
@@ -439,142 +463,75 @@ def ip_set_from_idrac(idrac):
 
     return ip_set
 
-def main():
-    parser = argparse.ArgumentParser(description='Idrac Inventory')
-    parser.add_argument('idrac',nargs='+',help="""White space separated list of IP address specifications to scan for iDRACs. Each specification may be an IP address, range of IP addresses. A range's start and end IP addresses are separated by a hyphen.Only IPv4 addresses are supported.""")
-    parser.add_argument('-u','--username',default=IDRAC_FACTORY_ADMIN_USER_CREDENTIALS['user_name'],help='username for accessing the iDRACs')
-    parser.add_argument('-p','--password',default=IDRAC_FACTORY_ADMIN_USER_CREDENTIALS['password'],help='password for accessing the iDRACs')
-    args = parser.parse_args()
-    ip_set = parse_idrac_arguments(idrac_list=args.idrac)
-    NoOfIdracs,IdracListXlsxFile=createXlsxForIdracs(ip_set)
 
-    
-    miss_nxt_user_entry = 0
-    while(1):
-        break;
-        type_of_input = raw_input(
-            'Want to read Idrac info from Xls, press Y/y else any key for user defined idrac info: ')
-        if type_of_input.isdigit():
-            print "Enter a character or Enter E to exit"
-            continue
-        elif "E" in type_of_input:
-            print "Program terminated successfully"
-            exit()
-        elif (type_of_input == "Y" or type_of_input == "y"):
-            NoOfIdracs = raw_input('Enter the number of IDRACs :')
-            NetworkAddress = raw_input(
-                'Enter the first three byte of Network:')
-            StartAddressLastByte = raw_input(
-                'Enter the Last byte to start from :')
-            dumy_ip = NetworkAddress + "." + StartAddressLastByte
-            pat = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-            test = pat.match(dumy_ip)
-            if test:
-                pass
-            else:
-                print "Not a valid IP address to start from!"
-                continue
-            NoOfIdracs = int(NoOfIdracs)
-            IdracListXlsxFile = createXlsxForIdrac(
-                NoOfIdracs, str(NetworkAddress), int(StartAddressLastByte))
-            miss_nxt_user_entry = 1
-            break
-        else:
-            break
+def main():
+
+    # parse input argument
+    parser = argparse.ArgumentParser(description='Idrac Inventory')
+    parser.add_argument('idrac', nargs='+', help="""White space separated list of IP address specifications to scan for iDRACs. Each specification may be an IP address, range of IP addresses. A range's start and end IP addresses are separated by a hyphen.Only IPv4 addresses are supported.""")
+    parser.add_argument(
+        '-u', '--username', default=IDRAC_FACTORY_ADMIN_USER_CREDENTIALS['user_name'], help='username for accessing the iDRACs')
+    parser.add_argument(
+        '-p', '--password', default=IDRAC_FACTORY_ADMIN_USER_CREDENTIALS['password'], help='password for accessing the iDRACs')
+    args = parser.parse_args()
+    # get a list of ip address in a form of set
+    ip_set = parse_idrac_arguments(idrac_list=args.idrac)
+    # save ip, user and password into the xlsx and get no of idracs
+    NoOfIdracs, IdracListXlsxFile = createXlsxForIdracs(
+        ip_set, args.username, args.password)
+
     IdracList = []
     Idrac = []
-    if miss_nxt_user_entry == -1:
-        while(1):
-            NoOfIdracs = raw_input('Enter the number of IDRACs :')
-            if NoOfIdracs.isdigit():
-                break
-            elif "E" in NoOfIdracs:
-                print "Program terminated successfully"
-                exit()
-            else:
-                print "Enter a number or Enter E to exit"
-                continue
-        NoOfIdracs = int(NoOfIdracs)
-        print NoOfIdracs
-        # Store IP, User and Password into a list
-
-        for i in range(0, NoOfIdracs):
-            Idrac = []
-            print "Idrac :", i
-            while(1):
-                pat = re.compile("^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$")
-                IpAddress = raw_input('Enter the IP Address :')
-                test = pat.match(IpAddress)
-                if test:
-                    pass
-                else:
-                    print "Please Enter a valid IP!"
-                    continue
-                Idrac.append(IpAddress)
-                User = raw_input('Enter the user name :')
-                Idrac.append(User)
-            #	Pass = raw_input('Enter the Password :')
-                Pass = getpass.getpass("Enter the password: ")
-            #	print Pass
-                Idrac.append(Pass)
-
-                check = raw_input(
-                    'Data is stored successfully, press N/n to re-enter or press any key to move forward :')
-                if check == "N" or check == "n":
-                    Idrac = []
-                    continue
-                else:
-                    IdracList.append(Idrac)
-                    print IdracList
-                    break
-    else:
-        print "loading files"
-        wb = load_workbook(IdracListXlsxFile)
-        ws = wb['IdracInfo']
-        xls_ind = 2
-
-        for i in range(NoOfIdracs):
-            Idrac = []
-   #	    print IP_ADDRESS_COLUMN + str(xls_ind), ws[IP_ADDRESS_COLUMN + str(xls_ind)].value
-            Idrac.append(ws[IP_ADDRESS_COLUMN + str(xls_ind)].value)
-            Idrac.append(ws[USER_COLUMN + str(xls_ind)].value)
-            Idrac.append(ws[PASSWORD_COLUMN + str(xls_ind)].value)
-            IdracList.append(Idrac)
-            xls_ind += 1
-        print IdracList
-
+    print "loading file"
+    # load xlsx sheet
+    wb = load_workbook(IdracListXlsxFile)
+    ws = wb['IdracInfo']
+    xls_ind = 2
+    # fill the idrac list with ip, user and password from xlsx
+    for i in range(NoOfIdracs):
+        Idrac = []
+        Idrac.append(ws[IP_ADDRESS_COLUMN + str(xls_ind)].value)
+        Idrac.append(ws[USER_COLUMN + str(xls_ind)].value)
+        Idrac.append(ws[PASSWORD_COLUMN + str(xls_ind)].value)
+        IdracList.append(Idrac)
+        xls_ind += 1
+    # final list contains the ip, user and password
+    print IdracList
+    # no idrac
     if len(IdracList) == 0:
         print "IdracList is empty, terminating the application"
         exit()
-    # Using the stored information ssh into the server and get Hwinventory
+    # file for logging
+    Logfilename = "log" + ".txt"
+    logfptr = open(Logfilename, "w+")
 
-    HwInventoryList = sshAndStoreData(IdracList)
-   # print HwInventoryList
-#    for idrac in range(len(HwInventoryList)):
- #       if not HwInventoryList[idrac] and idrac<1:
-  #          print "HwInventoryList is empty, terminating the application"
-   #         exit()
+    # Using the stored information ssh into the server and get Hwinventory
+    HwInventoryList = sshAndStoreData(IdracList, logfptr)
+
     TotalIdracsOutputs = len(HwInventoryList)
     # Final list of idracs
     iDRAC_list = []
 
     Outfilename = "Idrac" + ".json"
+
     continue_now = 0
     for IdracNo in range(0, TotalIdracsOutputs):
         #	print IdracNo
+        continue_now = 0
+        # list is empty although we tried to ssh into the idrac
         if not HwInventoryList[IdracNo]:
             time.sleep(1)
-            print "HwInventory list is empty for idrac: ", IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]
+            logfptr.write("HwInventory list is empty for idrac: %s %s %s\n" % (
+                IdracList[IdracNo][0], IdracList[IdracNo][1], IdracList[IdracNo][2]))
+       #     print "HwInventory list is empty for idrac: ", IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]
             continue
         else:
             pass
         # Lists and dictionaries variable initialization
-        MemoryDictionary = {}
-        idrac_dumy_dic = OrderedDict()
 
+        idrac_dumy_dic = OrderedDict()
         Mem_section_list, mem_size_list, mem_speed_list, mem_descp_list, mem_serial_list, mem_model_list, mem_status_list = ([
         ]for i in range(0, 7))
-        dumy_mem_dic = collections.defaultdict(dict)
 
    #     time = time.strftime("%Y%m%d-%H%M%S")
         filename = "Idrac" + str(IdracNo) + ".ini"
@@ -585,17 +542,22 @@ def main():
             if "--" in line:
                 continue
             elif "ERROR: Invalid subcommand specified" in line:
-                print "Racadm did not work for ", IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]
-                continue_now =1
+                logfptr.write("%s for %s %s %s\n" % (
+                    line, IdracList[IdracNo][0], IdracList[IdracNo][1], IdracList[IdracNo][2]))
+                continue_now = 1
                 break
             elif "No more sessions are available" in line:
-                print "No more sessions are available for ", IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]
-                continue_now =1
+                logfptr.write("%s for %s %s %s\n" % (
+                    line, IdracList[IdracNo][0], IdracList[IdracNo][1], IdracList[IdracNo][2]))
+                continue_now = 1
                 break
             fptr.write("%s\n" % line)
         fptr.close()
+        # Racadm command did not work for those idracs so delete the ini file and continue
         if continue_now:
+            os.remove(filename)
             continue
+
         # Read Sections from filename
         try:
             Config = ConfigParser.ConfigParser()
@@ -603,11 +565,16 @@ def main():
 #	    print Config.sections()
         except (ConfigParser.MissingSectionHeaderError,
                 ConfigParser.ParsingError):
-            print "No Section header"
+            logfptr.write("No Section header for %s %s %s\n" % (
+                IdracList[IdracNo][0], IdracList[IdracNo][1], IdracList[IdracNo][2]))
             continue
-        if " " in Config.sections():
-            print "No section, exiting"
+
+ #       if " " in Config.sections():
+  #          logfptr.write("No Section header for %s %s %s" % (IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]))
+   #         print "No section, exiting"
+
         # Store memory sections into the list
+
         for s in Config.sections():
             if "InstanceID: DIMM.Socket" in s:
                 Mem_section_list += [s]
@@ -643,8 +610,9 @@ def main():
                 value = mem_size_list[index].replace("KB", "")
                 value /= 1024
                 mem_size_list[index] = value
-
+        # total memory slots
         mem_slots = len(mem_size_list)
+        # list of dictionaries for storing features of each memory slot
         mem_info_dictionaries = [dict() for x in range(mem_slots)]
         mem_info_list = []
 
@@ -863,6 +831,7 @@ def main():
 #	    print total_hard_size
             driv_total_siz_list.append(total_hard_size)
             driv_media_typ_list += [Config.get(str(dev_sec), 'MediaType')]
+            # check and count the total ssd or hdd
             if ("Solid State Drive" in Config.get(str(dev_sec), 'MediaType')):
                 check_ssd += 1
             if ("HDD" in Config.get(str(dev_sec), 'MediaType')):
@@ -878,14 +847,11 @@ def main():
             driv_raid_status_list += [Config.get(str(dev_sec), 'RaidStatus')]
             driv_predictiv_fail_status_list += [
                 Config.get(str(dev_sec), 'PredictiveFailureState')]
-        # Adjust the size of each hardrives
- #       for index in range(0, len(driv_total_byte_list)):
-  #          value = int(driv_total_byte_list[index])
-   #         value /= float(1024 * 1024 * 1024)
-    #        driv_total_siz_list[index] = value
+
 #        print driv_total_siz_list
         total_size = (sum([int(x) for x in driv_total_siz_list]))
         driv_slots = len(Drive_section_list)
+        # list of dictionaries for hdd and ssd for storing each slot information seperately
         driv_info_hdd_dictionaries = [dict() for x in range(check_hdd)]
         driv_info_ssd_dictionaries = [dict() for x in range(check_ssd)]
         driv_info_list = []
@@ -937,16 +903,15 @@ def main():
 
         driv_dict = dict()
         driv_type_dict = dict()
-#        driv_type_list = []
-#        idrac_dumy_dic['drives'] = driv_slots
+
         if check_ssd > 0:
+            # save ssd dictionaries features into a dictionary
             driv_dict['SSD'] = driv_info_ssd_dictionaries
+            # save drives type vs total drive of that type "ssd" into a dictioanary
             driv_type_dict['SSD'] = ssd_index
         if check_hdd > 0:
             driv_dict['HDD'] = driv_info_hdd_dictionaries
             driv_type_dict['HDD'] = hdd_index
- #       driv_info_list.append(driv_dict)
-#        driv_type_list.append(driv_type_dict)
         idrac_dumy_dic['drives_type'] = driv_type_dict
         idrac_dumy_dic['total_drives_size'] = str(total_size) + " GB"
         idrac_dumy_dic['drives_info'] = driv_dict
@@ -962,6 +927,8 @@ def main():
 
         # Finally add all the nested dictionaries and list into a list (json formate)
         iDRAC_list.append(idrac_dumy_dic)
+
+    logfptr.close()
     # Store the json formate into a file
     fptr = open(Outfilename, "w+")
     json.dump(iDRAC_list, fptr, indent=4,
@@ -972,10 +939,3 @@ def main():
 
 
 main()
-# df = pd.read_json(Outfilename, grab_nest=(cpu_info, drives_info, nic_info, memory_info))
-# df = pd.read_json(Outfilename)
-# json_normalize(df)
-# print "writing to file"
-# time=datetime.utcnow().strftime("%s")
-# name='Output'+time+'.xlsx'
-# df.to_excel(name)
