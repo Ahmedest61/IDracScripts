@@ -464,6 +464,345 @@ def ip_set_from_idrac(idrac):
     return ip_set
 
 
+def extract_mem(Config):
+    Mem_section_list, mem_size_list, mem_speed_list, mem_descp_list, mem_serial_list, mem_model_list, mem_status_list = ([
+    ]for i in range(0, 7))
+    for s in Config.sections():
+        if "InstanceID: DIMM.Socket" in s:
+            Mem_section_list += [s]
+ #       Mem_section_list = [s for s, s in enumerate(
+  #          Config.sections()) if "InstanceID: DIMM.Socket" in s]
+        # Extract key, values from memory sections
+    for mem_sec in Mem_section_list:
+        mem_size_list += [Config.get(str(mem_sec), 'Size')]
+        mem_speed_list += [Config.get(str(mem_sec),
+                                      'CurrentOperatingSpeed')]
+        mem_descp_list += [Config.get(str(mem_sec), 'Manufacturer')]
+        mem_serial_list += [Config.get(str(mem_sec), 'SerialNumber')]
+        mem_model_list += [Config.get(str(mem_sec), 'Model')]
+        mem_status_list += [Config.get(str(mem_sec), 'PrimaryStatus')]
+        # Check the types and sizes of memory, convert it into MB, and store them into a list
+    for index in range(0, len(mem_size_list)):
+        if "MB" in mem_size_list[index]:
+            value = mem_size_list[index].replace("MB", "")
+            mem_size_list[index] = value
+        elif "PB" in mem_size_list[index]:
+            value = mem_size_list[index].replace("PB", "")
+            value *= math.pow(1024, 3)
+            mem_size_list[index] = value
+        elif "TB" in mem_size_list[index]:
+            value = mem_size_list[index].replace("TB", "")
+            value *= math.pow(1024, 2)
+            mem_size_list[index] = value
+        elif "GB" in mem_size_list[index]:
+            value = mem_size_list[index].replace("GB", "")
+            value *= math.pow(1024, 1)
+            mem_size_list[index] = value
+        elif "KB" in mem_size_list[index]:
+            value = mem_size_list[index].replace("KB", "")
+            value /= 1024
+            mem_size_list[index] = value
+        # total memory slots
+    mem_slots = len(mem_size_list)
+    # list of dictionaries for storing features of each memory slot
+    mem_info_dictionaries = [dict() for x in range(mem_slots)]
+    mem_info_list = []
+
+    # Store memory key value individually intothe list of dictionaries
+    for i in range(mem_slots):
+        mem_info_dictionaries[i]['manufacturer'] = mem_descp_list[i]
+        mem_info_dictionaries[i]['speed'] = mem_speed_list[i]
+        mem_info_dictionaries[i]['model'] = mem_model_list[i]
+        mem_info_dictionaries[i]['serial'] = mem_serial_list[i]
+        mem_info_dictionaries[i]['status'] = mem_status_list[i]
+    # Store list of dictionaries into a list
+    mem_info_list = mem_info_dictionaries
+    total_mem = str(sum([int(x) for x in mem_size_list]))
+#    print total_mem, mem_info_list, mem_slots
+    return total_mem, mem_info_list, mem_slots
+
+
+def extract_cpu(Config):
+
+    # Lists variable initialization
+    Cpu_section_list, cpu_processor_list, cpu_family_list, cpu_manufac_list, cpu_curr_clock_list, cpu_model_list = ([
+    ]for i in range(6))
+    cpu_prim_status_list, cpu_virt_list, cpu_voltag_list, cpu_enabled_thread_list, cpu_max_clock_speed_list = ([
+    ]for i in range(5))
+    cpu_ex_bus_clock_speed_list, cpu_hyper_thread_list, cpu_status_list = (
+        []for i in range(3))
+
+    # Store cpu sections into the list
+    for s in Config.sections():
+        if "InstanceID: CPU.Socket" in s:
+            Cpu_section_list += [s]
+    for cpu_sec in Cpu_section_list:
+        cpu_processor_list += [Config.get(str(cpu_sec),
+                                          'NumberOfProcessorCores')]
+        cpu_family_list += [Config.get(str(cpu_sec), 'CPUFamily')]
+        cpu_manufac_list += [Config.get(str(cpu_sec), 'Manufacturer')]
+        cpu_curr_clock_list += [Config.get(str(cpu_sec),
+                                           'CurrentClockSpeed')]
+        cpu_model_list += [Config.get(str(cpu_sec), 'Model')]
+        cpu_prim_status_list += [Config.get(str(cpu_sec), 'PrimaryStatus')]
+        cpu_virt_list += [Config.get(str(cpu_sec),
+                                     'VirtualizationTechnologyEnabled')]
+        cpu_voltag_list += [Config.get(str(cpu_sec), 'Voltage')]
+        cpu_enabled_thread_list += [Config.get(
+            str(cpu_sec), 'NumberOfEnabledThreads')]
+        cpu_max_clock_speed_list += [
+            Config.get(str(cpu_sec), 'MaxClockSpeed')]
+        cpu_ex_bus_clock_speed_list += [Config.get(
+            str(cpu_sec), 'ExternalBusCLockSpeed')]
+        cpu_hyper_thread_list += [Config.get(str(cpu_sec),
+                                             'HyperThreadingEnabled')]
+        cpu_status_list += [Config.get(str(cpu_sec), 'CPUStatus')]
+
+    cpu_slots = len(cpu_processor_list)
+    cpu_info_dictionaries = [dict() for x in range(cpu_slots)]
+    cpu_info_list = []
+    total_threads = 0
+    # Store cpu key value individually into the list of dictionaries
+    for i in range(cpu_slots):
+        cpu_info_dictionaries[i]['no_of_processors'] = cpu_processor_list[i]
+        cpu_info_dictionaries[i]['cpu_family'] = cpu_family_list[i]
+        cpu_info_dictionaries[i]['manufacturer'] = cpu_manufac_list[i]
+        cpu_info_dictionaries[i]['current_clock_speed'] = cpu_curr_clock_list[i]
+        cpu_info_dictionaries[i]['model'] = cpu_model_list[i]
+        cpu_info_dictionaries[i]['primary_status'] = cpu_prim_status_list[i]
+        cpu_info_dictionaries[i]['virtualization_technology_enabled'] = cpu_virt_list[i]
+        cpu_info_dictionaries[i]['voltage'] = cpu_voltag_list[i]
+        cpu_info_dictionaries[i]['no_of_enabled_thread'] = cpu_enabled_thread_list[i]
+        cpu_info_dictionaries[i]['max_clock_Speed'] = cpu_max_clock_speed_list[i]
+        cpu_info_dictionaries[i]['external_bus_clock_speed'] = cpu_ex_bus_clock_speed_list[i]
+        cpu_info_dictionaries[i]['hyper_threading_enabled'] = cpu_hyper_thread_list[i]
+        if cpu_hyper_thread_list[i] == "Yes" or cpu_hyper_thread_list[i] == "1":
+            total_threads += int(cpu_enabled_thread_list[i])
+        cpu_info_dictionaries[i]['cpu_status'] = cpu_status_list[i]
+        # Store list of dictionaries into a list
+    cpu_info_list = cpu_info_dictionaries
+   # print cpu_slots, total_threads, cpu_info_list
+    return cpu_slots, total_threads, cpu_info_list
+
+
+def extract_nics(Config):
+
+    # Lists variable initialization
+    Nic_section_list, nic_manufac_list, nic_descrp_list, nic_dev_descrp_list, nic_fqdd_list = ([
+    ]for i in range(5))
+    nic_pci_sub_device_id_list, nic_pci_sub_vendor_id_list, nic_pci_device_id_list = (
+        []for i in range(3))
+    nic_pci_vendor_id_list, nic_bus_no_list, nic_slot_typ_list, nic_data_bus_width_list = ([
+    ]for i in range(4))
+    nic_fun_no_list, nic_dev_no_list = ([]for i in range(2))
+    # Store nic sections into the list
+    for s in Config.sections():
+        if "InstanceID: NIC" in s:
+            Nic_section_list += [s]
+    Nic_set = set()
+    port_slots = len(Nic_section_list)
+    for section in Nic_section_list:
+        nic = section.split(" ")[1].split(".")[0] + "." + section.split(" ")[1].split(
+            ".")[1] + "." + section.split(" ")[1].split(".")[2].split("-")[0]
+        if nic not in Nic_set:
+            Nic_set.add(nic)
+    nic_slots = len(Nic_set)
+    # Using the set of nics, make a dictionary which corresponds to the ports each nic contains
+    Nic_set_dic = dict()
+    for nic in Nic_set:
+        for nic_sec in Nic_section_list:
+            if nic in nic_sec:
+                if nic not in Nic_set_dic:
+                    Nic_set_dic[nic] = list()
+                    Nic_set_dic[nic].append(nic_sec)
+                else:
+                    Nic_set_dic[nic].append(nic_sec)
+
+        # Extract key, values from nic sections
+    for nic_sec in Nic_section_list:
+        nic_manufac_list += [Config.get(str(nic_sec), 'Manufacturer')]
+        nic_descrp_list += [Config.get(str(nic_sec), 'Description')]
+        nic_dev_descrp_list += [Config.get(str(nic_sec),
+                                           'DeviceDescription')]
+        nic_fqdd_list += [Config.get(str(nic_sec), 'FQDD')]
+        nic_pci_sub_device_id_list += [
+            Config.get(str(nic_sec), 'PCISubDeviceID')]
+        nic_pci_sub_vendor_id_list += [
+            Config.get(str(nic_sec), 'PCISubVendorID')]
+        nic_pci_device_id_list += [Config.get(str(nic_sec), 'PCIDeviceID')]
+        nic_pci_vendor_id_list += [Config.get(str(nic_sec), 'PCIVendorID')]
+        nic_bus_no_list += [Config.get(str(nic_sec), 'BusNumber')]
+        nic_slot_typ_list += [Config.get(str(nic_sec), 'SlotType')]
+        nic_data_bus_width_list += [
+            Config.get(str(nic_sec), 'DataBusWidth')]
+        nic_fun_no_list += [Config.get(str(nic_sec), 'FunctionNumber')]
+        nic_dev_no_list += [Config.get(str(nic_sec), 'DeviceNumber')]
+
+    nic_info_dictionaries = [dict() for x in range(port_slots)]
+    # Store nic key value individually into the list of dictionaries
+    for i in range(port_slots):
+        nic_info_dictionaries[i]['manufacturer'] = nic_manufac_list[i]
+        nic_info_dictionaries[i]['decription'] = nic_descrp_list[i]
+        nic_info_dictionaries[i]['device_description'] = nic_dev_descrp_list[i]
+        nic_info_dictionaries[i]['fqdd'] = nic_fqdd_list[i]
+        nic_info_dictionaries[i]['pci_subdevice_id'] = nic_pci_sub_device_id_list[i]
+        nic_info_dictionaries[i]['pci_Subvendor_id'] = nic_pci_sub_vendor_id_list[i]
+        nic_info_dictionaries[i]['pci_Dev_id'] = nic_pci_device_id_list[i]
+        nic_info_dictionaries[i]['pci_vendor_id'] = nic_pci_vendor_id_list[i]
+        nic_info_dictionaries[i]['bus_number'] = nic_bus_no_list[i]
+        nic_info_dictionaries[i]['slot_type'] = nic_slot_typ_list[i]
+        nic_info_dictionaries[i]['data_bus_width'] = nic_data_bus_width_list[i]
+        nic_info_dictionaries[i]['function_number'] = nic_fun_no_list[i]
+        nic_info_dictionaries[i]['dev_number'] = nic_dev_no_list[i]
+        # Store keys and values of nic in dictionary using a nic set vs port formate
+    nic_port_dictionaries = dict()
+    nic_name_list = []
+    for nic in Nic_set:
+        nic_name_list.append(nic)
+        dumy_dict = [dict() for x in range(len(Nic_set_dic[nic]))]
+        ind = 0
+        for nics in Nic_set_dic[nic]:
+            for j in range(port_slots):
+                if nic_info_dictionaries[j]['fqdd'] in nics:
+                    dumy_dict[ind] = nic_info_dictionaries[j]
+                    ind += 1
+        nic_port_dictionaries[nic] = dumy_dict
+#    print nic_slots, nic_name_list, port_slots, nic_port_dictionaries
+    return nic_slots, nic_name_list, port_slots, nic_port_dictionaries
+
+
+def extract_hard_drives(Config):
+    # Lists variable initialization
+    Drive_section_list, driv_dev_list, driv_dev_descrp_list, driv_ppid_list, temp_size_list = ([
+    ]for i in range(5))
+    driv_sas_address_list, driv_max_cap_speed_list, driv_used_siz_byte_list, driv_media_typ_list = ([
+    ]for i in range(4))
+    driv_blck_siz_byte_list, driv_bus_protocol_list, driv_serial_no_list, driv_manufacturer_list = ([
+    ]for i in range(4))
+    driv_fqdd_list, driv_slot_list, driv_raid_status_list, driv_predictiv_fail_status_list, driv_free_siz_byte_list, driv_total_siz_list = ([
+    ]for i in range(6))
+    # Store drive sections into the list
+    for s in Config.sections():
+        if "InstanceID: Disk" in s:
+            Drive_section_list += [s]
+   #     Drive_section_list = [s for s, s in enumerate(
+    #        Config.sections()) if ("InstanceID: Disk") in s]
+    i = 0
+    drive_list_len = len(Drive_section_list)
+    # Filter the physical hardrives
+    while(i < len(Drive_section_list)):
+        if Config.has_option(Drive_section_list[i], "Device Type"):
+            if "PhysicalDisk" not in Config.get(Drive_section_list[i], "Device Type"):
+                del Drive_section_list[i]
+            else:
+                i += 1
+                continue
+        # Extract key, values from drives sections
+    check_ssd = 0
+    check_hdd = 0
+    for dev_sec in Drive_section_list:
+        driv_dev_list += [Config.get(str(dev_sec), 'Device Type')]
+        driv_dev_descrp_list += [Config.get(str(dev_sec),
+                                            'DeviceDescription')]
+        driv_ppid_list += [Config.get(str(dev_sec), 'PPID')]
+        driv_sas_address_list += [Config.get(str(dev_sec), 'SASAddress')]
+        driv_max_cap_speed_list += [
+            Config.get(str(dev_sec), 'MaxCapableSpeed')]
+        driv_used_siz_byte_list += [
+            Config.get(str(dev_sec), 'UsedSizeInBytes')]
+        driv_free_siz_byte_list += [
+            Config.get(str(dev_sec), 'FreeSizeInBytes')]
+        total_hard_size = int(Config.get(str(dev_sec), 'UsedSizeInBytes').split(" ")[0]) + int(
+            Config.get(str(dev_sec), 'FreeSizeInBytes').split(" ")[0])
+        total_hard_size /= math.pow(1024, 3)
+#	    print total_hard_size
+        driv_total_siz_list.append(total_hard_size)
+        driv_media_typ_list += [Config.get(str(dev_sec), 'MediaType')]
+        # check and count the total ssd or hdd
+        if ("Solid State Drive" in Config.get(str(dev_sec), 'MediaType')):
+            check_ssd += 1
+        if ("HDD" in Config.get(str(dev_sec), 'MediaType')):
+            check_hdd += 1
+        driv_blck_siz_byte_list += [
+            Config.get(str(dev_sec), 'BlockSizeInBytes')]
+        driv_bus_protocol_list += [Config.get(str(dev_sec), 'BusProtocol')]
+        driv_serial_no_list += [Config.get(str(dev_sec), 'SerialNumber')]
+        driv_manufacturer_list += [
+            Config.get(str(dev_sec), 'Manufacturer')]
+        driv_fqdd_list += [Config.get(str(dev_sec), 'FQDD')]
+        driv_slot_list += [Config.get(str(dev_sec), 'Slot')]
+        driv_raid_status_list += [Config.get(str(dev_sec), 'RaidStatus')]
+        driv_predictiv_fail_status_list += [
+            Config.get(str(dev_sec), 'PredictiveFailureState')]
+
+#        print driv_total_siz_list
+    total_size = (sum([int(x) for x in driv_total_siz_list]))
+    driv_slots = len(Drive_section_list)
+    # list of dictionaries for hdd and ssd for storing each slot information seperately
+    driv_info_hdd_dictionaries = [dict() for x in range(check_hdd)]
+    driv_info_ssd_dictionaries = [dict() for x in range(check_ssd)]
+    driv_info_list = []
+    # Store hardrive key value individually into the list of dictionaries
+    hdd_index = 0
+    ssd_index = 0
+    for i in range(driv_slots):
+        if "HDD" in driv_media_typ_list[i]:
+            driv_info_hdd_dictionaries[hdd_index]['device_type'] = driv_dev_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['device_description'] = driv_dev_descrp_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['ppid'] = driv_ppid_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['sas_address'] = driv_sas_address_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['total_size_in_giga_bytes'] = str(
+                driv_total_siz_list[i]) + " GB"
+#		    driv_info_hdd_dictionaries[hdd_index]['media_type'] = driv_media_typ_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['bus_protocol'] = driv_bus_protocol_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['serial_no'] = driv_serial_no_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['manufacturer'] = driv_manufacturer_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['fqdd'] = driv_fqdd_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['slot'] = driv_slot_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['raid_status'] = driv_raid_status_list[i]
+            driv_info_hdd_dictionaries[hdd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
+            hdd_index += 1
+        elif "Solid State Drive" in driv_media_typ_list[i]:
+            driv_info_ssd_dictionaries[ssd_index]['device_type'] = driv_dev_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['device_description'] = driv_dev_descrp_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['ppid'] = driv_ppid_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['sas_address'] = driv_sas_address_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
+
+            driv_info_ssd_dictionaries[ssd_index]['total_size_in_giga_bytes'] = str(
+                driv_total_siz_list[i]) + " GB"
+#		    driv_info_ssd_dictionaries[ssd_index]['media_type'] = driv_media_typ_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['bus_protocol'] = driv_bus_protocol_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['serial_no'] = driv_serial_no_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['manufacturer'] = driv_manufacturer_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['fqdd'] = driv_fqdd_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['slot'] = driv_slot_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['raid_status'] = driv_raid_status_list[i]
+            driv_info_ssd_dictionaries[ssd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
+            ssd_index += 1
+
+    driv_dict = dict()
+    driv_type_dict = dict()
+
+    if check_ssd > 0:
+        # save ssd dictionaries features into a dictionary
+        driv_dict['SSD'] = driv_info_ssd_dictionaries
+        # save drives type vs total drive of that type "ssd" into a dictioanary
+        driv_type_dict['SSD'] = ssd_index
+    if check_hdd > 0:
+        driv_dict['HDD'] = driv_info_hdd_dictionaries
+        driv_type_dict['HDD'] = hdd_index
+  #  print driv_type_dict, total_size, driv_dict
+    return driv_type_dict, total_size, driv_dict
+
+
 def main():
 
     # parse input argument
@@ -530,8 +869,6 @@ def main():
         # Lists and dictionaries variable initialization
 
         idrac_dumy_dic = OrderedDict()
-        Mem_section_list, mem_size_list, mem_speed_list, mem_descp_list, mem_serial_list, mem_model_list, mem_status_list = ([
-        ]for i in range(0, 7))
 
    #     time = time.strftime("%Y%m%d-%H%M%S")
         filename = "Idrac" + str(IdracNo) + ".ini"
@@ -569,361 +906,41 @@ def main():
                 IdracList[IdracNo][0], IdracList[IdracNo][1], IdracList[IdracNo][2]))
             continue
 
- #       if " " in Config.sections():
-  #          logfptr.write("No Section header for %s %s %s" % (IdracList[IdracNo][0],IdracList[IdracNo][1],IdracList[IdracNo][2]))
-   #         print "No section, exiting"
-
-        # Store memory sections into the list
-
-        for s in Config.sections():
-            if "InstanceID: DIMM.Socket" in s:
-                Mem_section_list += [s]
- #       Mem_section_list = [s for s, s in enumerate(
-  #          Config.sections()) if "InstanceID: DIMM.Socket" in s]
-        # Extract key, values from memory sections
-        for mem_sec in Mem_section_list:
-            mem_size_list += [Config.get(str(mem_sec), 'Size')]
-            mem_speed_list += [Config.get(str(mem_sec),
-                                          'CurrentOperatingSpeed')]
-            mem_descp_list += [Config.get(str(mem_sec), 'Manufacturer')]
-            mem_serial_list += [Config.get(str(mem_sec), 'SerialNumber')]
-            mem_model_list += [Config.get(str(mem_sec), 'Model')]
-            mem_status_list += [Config.get(str(mem_sec), 'PrimaryStatus')]
-        # Check the types and sizes of memory, convert it into MB, and store them into a list
-        for index in range(0, len(mem_size_list)):
-            if "MB" in mem_size_list[index]:
-                value = mem_size_list[index].replace("MB", "")
-                mem_size_list[index] = value
-            elif "PB" in mem_size_list[index]:
-                value = mem_size_list[index].replace("PB", "")
-                value *= math.pow(1024, 3)
-                mem_size_list[index] = value
-            elif "TB" in mem_size_list[index]:
-                value = mem_size_list[index].replace("TB", "")
-                value *= math.pow(1024, 2)
-                mem_size_list[index] = value
-            elif "GB" in mem_size_list[index]:
-                value = mem_size_list[index].replace("GB", "")
-                value *= math.pow(1024, 1)
-                mem_size_list[index] = value
-            elif "KB" in mem_size_list[index]:
-                value = mem_size_list[index].replace("KB", "")
-                value /= 1024
-                mem_size_list[index] = value
-        # total memory slots
-        mem_slots = len(mem_size_list)
-        # list of dictionaries for storing features of each memory slot
-        mem_info_dictionaries = [dict() for x in range(mem_slots)]
-        mem_info_list = []
-
-        # Store memory key value individually intothe list of dictionaries
-        for i in range(mem_slots):
-            mem_info_dictionaries[i]['manufacturer'] = mem_descp_list[i]
-            mem_info_dictionaries[i]['speed'] = mem_speed_list[i]
-            mem_info_dictionaries[i]['model'] = mem_model_list[i]
-            mem_info_dictionaries[i]['serial'] = mem_serial_list[i]
-            mem_info_dictionaries[i]['status'] = mem_status_list[i]
-        # Store list of dictionaries into a list
-        mem_info_list = mem_info_dictionaries
+        total_mem, mem_info_list, mem_slots = extract_mem(Config)
 
         idrac_dumy_dic['ip'] = str(IdracList[IdracNo][0])
-        total_mem = str(sum([int(x) for x in mem_size_list]))
+
         idrac_dumy_dic['total_memory'] = total_mem + " MB" + \
             " / " + str(int(total_mem) / 1024) + " GB"
         idrac_dumy_dic['memory_slots'] = mem_slots
         idrac_dumy_dic['memory_info'] = mem_info_list
 
-        # Lists variable initialization
-        Cpu_section_list, cpu_processor_list, cpu_family_list, cpu_manufac_list, cpu_curr_clock_list, cpu_model_list = ([
-        ]for i in range(6))
-        cpu_prim_status_list, cpu_virt_list, cpu_voltag_list, cpu_enabled_thread_list, cpu_max_clock_speed_list = ([
-        ]for i in range(5))
-        cpu_ex_bus_clock_speed_list, cpu_hyper_thread_list, cpu_status_list = (
-            []for i in range(3))
-
-        # Store cpu sections into the list
-        for s in Config.sections():
-            if "InstanceID: CPU.Socket" in s:
-                Cpu_section_list += [s]
-#        Cpu_section_list = [s for s, s in enumerate(
- #           Config.sections()) if "InstanceID: CPU.Socket" in s]
-        # Extract key, values from cpu sections
-        for cpu_sec in Cpu_section_list:
-            cpu_processor_list += [Config.get(str(cpu_sec),
-                                              'NumberOfProcessorCores')]
-            cpu_family_list += [Config.get(str(cpu_sec), 'CPUFamily')]
-            cpu_manufac_list += [Config.get(str(cpu_sec), 'Manufacturer')]
-            cpu_curr_clock_list += [Config.get(str(cpu_sec),
-                                               'CurrentClockSpeed')]
-            cpu_model_list += [Config.get(str(cpu_sec), 'Model')]
-            cpu_prim_status_list += [Config.get(str(cpu_sec), 'PrimaryStatus')]
-            cpu_virt_list += [Config.get(str(cpu_sec),
-                                         'VirtualizationTechnologyEnabled')]
-            cpu_voltag_list += [Config.get(str(cpu_sec), 'Voltage')]
-            cpu_enabled_thread_list += [Config.get(
-                str(cpu_sec), 'NumberOfEnabledThreads')]
-            cpu_max_clock_speed_list += [
-                Config.get(str(cpu_sec), 'MaxClockSpeed')]
-            cpu_ex_bus_clock_speed_list += [Config.get(
-                str(cpu_sec), 'ExternalBusCLockSpeed')]
-            cpu_hyper_thread_list += [Config.get(str(cpu_sec),
-                                                 'HyperThreadingEnabled')]
-            cpu_status_list += [Config.get(str(cpu_sec), 'CPUStatus')]
-
-        cpu_slots = len(cpu_processor_list)
-        cpu_info_dictionaries = [dict() for x in range(cpu_slots)]
-        cpu_info_list = []
-        total_threads = 0
-        # Store cpu key value individually into the list of dictionaries
-        for i in range(cpu_slots):
-            cpu_info_dictionaries[i]['no_of_processors'] = cpu_processor_list[i]
-            cpu_info_dictionaries[i]['cpu_family'] = cpu_family_list[i]
-            cpu_info_dictionaries[i]['manufacturer'] = cpu_manufac_list[i]
-            cpu_info_dictionaries[i]['current_clock_speed'] = cpu_curr_clock_list[i]
-            cpu_info_dictionaries[i]['model'] = cpu_model_list[i]
-            cpu_info_dictionaries[i]['primary_status'] = cpu_prim_status_list[i]
-            cpu_info_dictionaries[i]['virtualization_technology_enabled'] = cpu_virt_list[i]
-            cpu_info_dictionaries[i]['voltage'] = cpu_voltag_list[i]
-            cpu_info_dictionaries[i]['no_of_enabled_thread'] = cpu_enabled_thread_list[i]
-            cpu_info_dictionaries[i]['max_clock_Speed'] = cpu_max_clock_speed_list[i]
-            cpu_info_dictionaries[i]['external_bus_clock_speed'] = cpu_ex_bus_clock_speed_list[i]
-            cpu_info_dictionaries[i]['hyper_threading_enabled'] = cpu_hyper_thread_list[i]
-            if cpu_hyper_thread_list[i] == "Yes" or cpu_hyper_thread_list[i] == "1":
-                total_threads += int(cpu_enabled_thread_list[i])
-            cpu_info_dictionaries[i]['cpu_status'] = cpu_status_list[i]
-        # Store list of dictionaries into a list
-        cpu_info_list = cpu_info_dictionaries
+        cpu_slots, total_threads, cpu_info_list = extract_cpu(Config)
         idrac_dumy_dic['cpu_slots'] = cpu_slots
         idrac_dumy_dic['cpu_threads'] = total_threads
-
         idrac_dumy_dic['cpu_info'] = cpu_info_list
-        # Lists variable initialization
-        Nic_section_list, nic_manufac_list, nic_descrp_list, nic_dev_descrp_list, nic_fqdd_list = ([
-        ]for i in range(5))
-        nic_pci_sub_device_id_list, nic_pci_sub_vendor_id_list, nic_pci_device_id_list = (
-            []for i in range(3))
-        nic_pci_vendor_id_list, nic_bus_no_list, nic_slot_typ_list, nic_data_bus_width_list = ([
-        ]for i in range(4))
-        nic_fun_no_list, nic_dev_no_list = ([]for i in range(2))
-        # Store nic sections into the list
-        for s in Config.sections():
-            if "InstanceID: NIC" in s:
-                Nic_section_list += [s]
-   #     Nic_section_list = [s for s, s in enumerate(
-    #        Config.sections()) if "InstanceID: NIC" in s]
-        # Make a set of nics, this will be used for identifying the ports as a nic may contain more than 1 port
-        Nic_set = set()
-        port_slots = len(Nic_section_list)
-        for section in Nic_section_list:
-            nic = section.split(" ")[1].split(".")[0] + "." + section.split(" ")[1].split(
-                ".")[1] + "." + section.split(" ")[1].split(".")[2].split("-")[0]
-            if nic not in Nic_set:
-                Nic_set.add(nic)
-        nic_slots = len(Nic_set)
-        # Using the set of nics, make a dictionary which corresponds to the ports each nic contains
-        Nic_set_dic = dict()
-        for nic in Nic_set:
-            for nic_sec in Nic_section_list:
-                if nic in nic_sec:
-                    if nic not in Nic_set_dic:
-                        Nic_set_dic[nic] = list()
-                        Nic_set_dic[nic].append(nic_sec)
-                    else:
-                        Nic_set_dic[nic].append(nic_sec)
 
-        # Extract key, values from nic sections
-        for nic_sec in Nic_section_list:
-            nic_manufac_list += [Config.get(str(nic_sec), 'Manufacturer')]
-            nic_descrp_list += [Config.get(str(nic_sec), 'Description')]
-            nic_dev_descrp_list += [Config.get(str(nic_sec),
-                                               'DeviceDescription')]
-            nic_fqdd_list += [Config.get(str(nic_sec), 'FQDD')]
-            nic_pci_sub_device_id_list += [
-                Config.get(str(nic_sec), 'PCISubDeviceID')]
-            nic_pci_sub_vendor_id_list += [
-                Config.get(str(nic_sec), 'PCISubVendorID')]
-            nic_pci_device_id_list += [Config.get(str(nic_sec), 'PCIDeviceID')]
-            nic_pci_vendor_id_list += [Config.get(str(nic_sec), 'PCIVendorID')]
-            nic_bus_no_list += [Config.get(str(nic_sec), 'BusNumber')]
-            nic_slot_typ_list += [Config.get(str(nic_sec), 'SlotType')]
-            nic_data_bus_width_list += [
-                Config.get(str(nic_sec), 'DataBusWidth')]
-            nic_fun_no_list += [Config.get(str(nic_sec), 'FunctionNumber')]
-            nic_dev_no_list += [Config.get(str(nic_sec), 'DeviceNumber')]
-
-        nic_info_dictionaries = [dict() for x in range(port_slots)]
-        # Store nic key value individually into the list of dictionaries
-        for i in range(port_slots):
-            nic_info_dictionaries[i]['manufacturer'] = nic_manufac_list[i]
-            nic_info_dictionaries[i]['decription'] = nic_descrp_list[i]
-            nic_info_dictionaries[i]['device_description'] = nic_dev_descrp_list[i]
-            nic_info_dictionaries[i]['fqdd'] = nic_fqdd_list[i]
-            nic_info_dictionaries[i]['pci_subdevice_id'] = nic_pci_sub_device_id_list[i]
-            nic_info_dictionaries[i]['pci_Subvendor_id'] = nic_pci_sub_vendor_id_list[i]
-            nic_info_dictionaries[i]['pci_Dev_id'] = nic_pci_device_id_list[i]
-            nic_info_dictionaries[i]['pci_vendor_id'] = nic_pci_vendor_id_list[i]
-            nic_info_dictionaries[i]['bus_number'] = nic_bus_no_list[i]
-            nic_info_dictionaries[i]['slot_type'] = nic_slot_typ_list[i]
-            nic_info_dictionaries[i]['data_bus_width'] = nic_data_bus_width_list[i]
-            nic_info_dictionaries[i]['function_number'] = nic_fun_no_list[i]
-            nic_info_dictionaries[i]['dev_number'] = nic_dev_no_list[i]
-        # Store keys and values of nic in dictionary using a nic set vs port formate
-        nic_port_dictionaries = dict()
-        nic_name_list = []
-        for nic in Nic_set:
-            nic_name_list.append(nic)
-            dumy_dict = [dict() for x in range(len(Nic_set_dic[nic]))]
-            ind = 0
-            for nics in Nic_set_dic[nic]:
-                for j in range(port_slots):
-                    if nic_info_dictionaries[j]['fqdd'] in nics:
-                        dumy_dict[ind] = nic_info_dictionaries[j]
-                        ind += 1
-            nic_port_dictionaries[nic] = dumy_dict
-
+        nic_slots, nic_name_list, port_slots, nic_port_dictionaries = extract_nics(
+            Config)
         idrac_dumy_dic['nic_slots'] = nic_slots
         idrac_dumy_dic['nic_slots_name'] = nic_name_list
         idrac_dumy_dic['ports'] = port_slots
         idrac_dumy_dic['nic_info'] = nic_port_dictionaries
-        # Lists variable initialization
-        Drive_section_list, driv_dev_list, driv_dev_descrp_list, driv_ppid_list, temp_size_list = ([
-        ]for i in range(5))
-        driv_sas_address_list, driv_max_cap_speed_list, driv_used_siz_byte_list, driv_media_typ_list = ([
-        ]for i in range(4))
-        driv_blck_siz_byte_list, driv_bus_protocol_list, driv_serial_no_list, driv_manufacturer_list = ([
-        ]for i in range(4))
-        driv_fqdd_list, driv_slot_list, driv_raid_status_list, driv_predictiv_fail_status_list, driv_free_siz_byte_list, driv_total_siz_list = ([
-        ]for i in range(6))
-        # Store drive sections into the list
-        for s in Config.sections():
-            if "InstanceID: Disk" in s:
-                Drive_section_list += [s]
-   #     Drive_section_list = [s for s, s in enumerate(
-    #        Config.sections()) if ("InstanceID: Disk") in s]
-        i = 0
-        drive_list_len = len(Drive_section_list)
-        # Filter the physical hardrives
-        while(i < len(Drive_section_list)):
-            if Config.has_option(Drive_section_list[i], "Device Type"):
-                if "PhysicalDisk" not in Config.get(Drive_section_list[i], "Device Type"):
-                    del Drive_section_list[i]
-                else:
-                    i += 1
-                    continue
-        # Extract key, values from drives sections
-        check_ssd = 0
-        check_hdd = 0
-        for dev_sec in Drive_section_list:
-            driv_dev_list += [Config.get(str(dev_sec), 'Device Type')]
-            driv_dev_descrp_list += [Config.get(str(dev_sec),
-                                                'DeviceDescription')]
-            driv_ppid_list += [Config.get(str(dev_sec), 'PPID')]
-            driv_sas_address_list += [Config.get(str(dev_sec), 'SASAddress')]
-            driv_max_cap_speed_list += [
-                Config.get(str(dev_sec), 'MaxCapableSpeed')]
-            driv_used_siz_byte_list += [
-                Config.get(str(dev_sec), 'UsedSizeInBytes')]
-            driv_free_siz_byte_list += [
-                Config.get(str(dev_sec), 'FreeSizeInBytes')]
-            total_hard_size = int(Config.get(str(dev_sec), 'UsedSizeInBytes').split(" ")[0]) + int(
-                Config.get(str(dev_sec), 'FreeSizeInBytes').split(" ")[0])
-            total_hard_size /= math.pow(1024, 3)
-#	    print total_hard_size
-            driv_total_siz_list.append(total_hard_size)
-            driv_media_typ_list += [Config.get(str(dev_sec), 'MediaType')]
-            # check and count the total ssd or hdd
-            if ("Solid State Drive" in Config.get(str(dev_sec), 'MediaType')):
-                check_ssd += 1
-            if ("HDD" in Config.get(str(dev_sec), 'MediaType')):
-                check_hdd += 1
-            driv_blck_siz_byte_list += [
-                Config.get(str(dev_sec), 'BlockSizeInBytes')]
-            driv_bus_protocol_list += [Config.get(str(dev_sec), 'BusProtocol')]
-            driv_serial_no_list += [Config.get(str(dev_sec), 'SerialNumber')]
-            driv_manufacturer_list += [
-                Config.get(str(dev_sec), 'Manufacturer')]
-            driv_fqdd_list += [Config.get(str(dev_sec), 'FQDD')]
-            driv_slot_list += [Config.get(str(dev_sec), 'Slot')]
-            driv_raid_status_list += [Config.get(str(dev_sec), 'RaidStatus')]
-            driv_predictiv_fail_status_list += [
-                Config.get(str(dev_sec), 'PredictiveFailureState')]
 
-#        print driv_total_siz_list
-        total_size = (sum([int(x) for x in driv_total_siz_list]))
-        driv_slots = len(Drive_section_list)
-        # list of dictionaries for hdd and ssd for storing each slot information seperately
-        driv_info_hdd_dictionaries = [dict() for x in range(check_hdd)]
-        driv_info_ssd_dictionaries = [dict() for x in range(check_ssd)]
-        driv_info_list = []
-        # Store hardrive key value individually into the list of dictionaries
-        hdd_index = 0
-        ssd_index = 0
-        for i in range(driv_slots):
-            if "HDD" in driv_media_typ_list[i]:
-                driv_info_hdd_dictionaries[hdd_index]['device_type'] = driv_dev_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['device_description'] = driv_dev_descrp_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['ppid'] = driv_ppid_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['sas_address'] = driv_sas_address_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['total_size_in_giga_bytes'] = str(
-                    driv_total_siz_list[i]) + " GB"
-#		    driv_info_hdd_dictionaries[hdd_index]['media_type'] = driv_media_typ_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['bus_protocol'] = driv_bus_protocol_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['serial_no'] = driv_serial_no_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['manufacturer'] = driv_manufacturer_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['fqdd'] = driv_fqdd_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['slot'] = driv_slot_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['raid_status'] = driv_raid_status_list[i]
-                driv_info_hdd_dictionaries[hdd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
-                hdd_index += 1
-            elif "Solid State Drive" in driv_media_typ_list[i]:
-                driv_info_ssd_dictionaries[ssd_index]['device_type'] = driv_dev_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['device_description'] = driv_dev_descrp_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['ppid'] = driv_ppid_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['sas_address'] = driv_sas_address_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['max_capable_speed'] = driv_max_cap_speed_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['used_size_in_bytes'] = driv_used_siz_byte_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['free_size_in_bytes'] = driv_free_siz_byte_list[i]
-
-                driv_info_ssd_dictionaries[ssd_index]['total_size_in_giga_bytes'] = str(
-                    driv_total_siz_list[i]) + " GB"
-#		    driv_info_ssd_dictionaries[ssd_index]['media_type'] = driv_media_typ_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['block_size_in_bytes'] = driv_blck_siz_byte_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['bus_protocol'] = driv_bus_protocol_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['serial_no'] = driv_serial_no_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['manufacturer'] = driv_manufacturer_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['fqdd'] = driv_fqdd_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['slot'] = driv_slot_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['raid_status'] = driv_raid_status_list[i]
-                driv_info_ssd_dictionaries[ssd_index]['predictive_failure_state'] = driv_predictiv_fail_status_list[i]
-                ssd_index += 1
-
-        driv_dict = dict()
-        driv_type_dict = dict()
-
-        if check_ssd > 0:
-            # save ssd dictionaries features into a dictionary
-            driv_dict['SSD'] = driv_info_ssd_dictionaries
-            # save drives type vs total drive of that type "ssd" into a dictioanary
-            driv_type_dict['SSD'] = ssd_index
-        if check_hdd > 0:
-            driv_dict['HDD'] = driv_info_hdd_dictionaries
-            driv_type_dict['HDD'] = hdd_index
+        driv_type_dict, total_size, driv_dict = extract_hard_drives(Config)
         idrac_dumy_dic['drives_type'] = driv_type_dict
         idrac_dumy_dic['total_drives_size'] = str(total_size) + " GB"
         idrac_dumy_dic['drives_info'] = driv_dict
-        Sys_section_list = []
-        # Store sys sections into the list
+
+       
         for s in Config.sections():
             if "InstanceID: System.Embedded" in s:
-                Sys_section_list += [s]
- #       Sys_section_list = [s for s, s in enumerate(
-  #          Config.sections()) if "InstanceID: System.Embedded" in s]
-        idrac_dumy_dic['service_tag'] = Config.get(
-            str(Sys_section_list[0]), 'ServiceTag')
+                idrac_dumy_dic['service_tag'] = Config.get(
+                    str(s), 'ServiceTag')
+              #  Sys_section_list += [s]
+
+      #  idrac_dumy_dic['service_tag'] = Config.get(
+       #     str(Sys_section_list[0]), 'ServiceTag')
 
         # Finally add all the nested dictionaries and list into a list (json formate)
         iDRAC_list.append(idrac_dumy_dic)
